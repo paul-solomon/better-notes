@@ -13,8 +13,8 @@ public class Helper
 {
     public static final String CONFIG_GROUP = "betternotes";
 
-    public static final Color BACKGROUND_COLOR = ColorScheme.DARK_GRAY_COLOR;
-    public static final Color CONTENT_COLOR = ColorScheme.DARKER_GRAY_COLOR;
+    public static final Color DARK_GREY_COLOR = ColorScheme.DARK_GRAY_COLOR;
+    public static final Color DARKER_GREY_COLOR = ColorScheme.DARKER_GRAY_COLOR;
 
     public static boolean checkClick(MouseEvent event)
     {

@@ -10,7 +10,6 @@ import net.runelite.client.ui.components.FlatTextField;
 import net.runelite.client.util.ImageUtil;
 
 import javax.swing.*;
-import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
@@ -25,37 +24,35 @@ public class SectionPanel extends JPanel
     private final BetterNotesPlugin plugin;
     private final BetterNotesSection section;
 
-    private final JLabel edit = new JLabel("Edit");
-    private final JLabel remove = new JLabel("Remove");
-    private final JLabel save = new JLabel("Save");
-    private final JLabel cancel = new JLabel("Cancel");
-
     private static final ImageIcon MINIMIZE_ICON;
     private static final ImageIcon MINIMIZE_ICON_HOVER;
     private static final ImageIcon MAXIMIZE_ICON;
     private static final ImageIcon MAXIMIZE_ICON_HOVER;
+    private static final ImageIcon MORE_OPTIONS_ICON;
+    private static final ImageIcon MORE_OPTIONS_ICON_HOVER;
+    private static final ImageIcon ADD_NOTE_ICON;
+    private static final ImageIcon ADD_NOTE_ICON_HOVER;
     private final JLabel minMaxLabel = new JLabel();
 
-    /**
-     * The panel that holds **all** collapsible content:
-     * - "Notes" label + "Add new note" button
-     * - "More content here..." label
-     *
-     * We toggle this entire panel's visibility based on isMaximized.
-     */
     private final JPanel expandedContentPanel = new JPanel();
 
     static
     {
-        BufferedImage downArrow = ImageUtil.loadImageResource(BetterNotesPlugin.class, "/down_arrow.png");
-        BufferedImage downArrowHover = ImageUtil.luminanceOffset(downArrow, -150);
+        BufferedImage downArrow = ImageUtil.loadImageResource(BetterNotesPlugin.class, "/chevron_down.png");
         MINIMIZE_ICON = new ImageIcon(downArrow);
-        MINIMIZE_ICON_HOVER = new ImageIcon(downArrowHover);
+        MINIMIZE_ICON_HOVER = new ImageIcon(ImageUtil.luminanceOffset(downArrow, -150));
 
-        BufferedImage rightArrow = ImageUtil.loadImageResource(BetterNotesPlugin.class, "/right_arrow.png");
-        BufferedImage rightArrowHover = ImageUtil.luminanceOffset(rightArrow, -150);
+        BufferedImage rightArrow = ImageUtil.loadImageResource(BetterNotesPlugin.class, "/chevron_right.png");
         MAXIMIZE_ICON = new ImageIcon(rightArrow);
-        MAXIMIZE_ICON_HOVER = new ImageIcon(rightArrowHover);
+        MAXIMIZE_ICON_HOVER = new ImageIcon(ImageUtil.luminanceOffset(rightArrow, -150));
+
+        BufferedImage moreOptions = ImageUtil.loadImageResource(BetterNotesPlugin.class, "/more_options.png");
+        MORE_OPTIONS_ICON = new ImageIcon(setImageOpacity(ImageUtil.resizeImage(moreOptions, 16, 16), 0.5f));
+        MORE_OPTIONS_ICON_HOVER = new ImageIcon(setImageOpacity(ImageUtil.resizeImage(moreOptions, 16, 16), 1.0f));
+
+        BufferedImage addNote = ImageUtil.loadImageResource(BetterNotesPlugin.class, "/new.png");
+        ADD_NOTE_ICON = new ImageIcon(setImageOpacity(ImageUtil.resizeImage(addNote, 16, 16), 0.5f));
+        ADD_NOTE_ICON_HOVER = new ImageIcon(setImageOpacity(ImageUtil.resizeImage(addNote, 16, 16), 1.0f));
     }
 
     public SectionPanel(BetterNotesPlugin plugin, BetterNotesSection section, final MouseAdapter flatTextFieldMouseAdapter)
@@ -63,28 +60,25 @@ public class SectionPanel extends JPanel
         this.plugin = plugin;
         this.section = section;
 
-        // Top-level layout
         setLayout(new BorderLayout());
-        setBackground(Helper.CONTENT_COLOR);
+        setBackground(Helper.DARKER_GREY_COLOR);
 
-        // === 1) NAME WRAPPER: top row (min/max, section name, action buttons) ===
+        // === Top Bar ===
         JPanel nameWrapper = new JPanel(new GridBagLayout());
-        nameWrapper.setBackground(Helper.CONTENT_COLOR);
-        nameWrapper.setBorder(new CompoundBorder(
-                BorderFactory.createMatteBorder(0, 0, 1, 0, Helper.BACKGROUND_COLOR),
-                BorderFactory.createLineBorder(Helper.CONTENT_COLOR)));
+        nameWrapper.setBackground(Helper.DARKER_GREY_COLOR);
+        nameWrapper.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0)); // No gaps or borders
 
         FlatTextField nameInput = createNameInput(section.getName(), flatTextFieldMouseAdapter);
+        nameInput.setBackground(Helper.DARKER_GREY_COLOR);
         JPanel nameActions = createNameActions(nameInput, flatTextFieldMouseAdapter);
-        setupMinMaxLabel(); // sets up the icon + toggle logic
+        setupMinMaxLabel();
 
-        // -- Layout constraints for top row --
         GridBagConstraints gc = new GridBagConstraints();
         gc.gridx = 0;
         gc.gridy = 0;
         gc.weightx = 0;
         gc.anchor = GridBagConstraints.WEST;
-        gc.insets = new Insets(0, 8, 0, 0); // small left margin for the arrow
+        gc.insets = new Insets(0, 8, 0, 0);
         nameWrapper.add(minMaxLabel, gc);
 
         gc = new GridBagConstraints();
@@ -100,57 +94,24 @@ public class SectionPanel extends JPanel
         gc.gridy = 0;
         gc.weightx = 0;
         gc.anchor = GridBagConstraints.EAST;
+        gc.insets = new Insets(0, 0, 0, 8);
         nameWrapper.add(nameActions, gc);
 
         add(nameWrapper, BorderLayout.NORTH);
 
-        // === 2) EXPANDED CONTENT PANEL (Collapsible) ===
-        expandedContentPanel.setBackground(Helper.CONTENT_COLOR);
+        // === Expandable Content ===
+        expandedContentPanel.setBackground(Helper.DARKER_GREY_COLOR);
         expandedContentPanel.setLayout(new BorderLayout());
+        expandedContentPanel.setBorder(new EmptyBorder(8, 8, 8, 8)); // Uniform padding on all sides
         expandedContentPanel.setVisible(section.isMaximized());
 
-        // (A) "Notes" area at the top of the collapsible panel
-        JPanel notesPanel = new JPanel(new BorderLayout(8, 0));
-        notesPanel.setBackground(Helper.CONTENT_COLOR);
-        // Some padding so it's not flush against edges
-        notesPanel.setBorder(new EmptyBorder(5, 8, 5, 8));
-
-        JLabel notesLabel = new JLabel("Notes");
-        notesLabel.setFont(FontManager.getRunescapeSmallFont());
-        notesLabel.setForeground(Color.WHITE);
-
-        JButton addNoteButton = new JButton("Add new note");
-        addNoteButton.setBackground(Helper.BACKGROUND_COLOR);
-        addNoteButton.setForeground(Color.WHITE);
-        addNoteButton.setFont(FontManager.getRunescapeSmallFont());
-        addNoteButton.addActionListener(e ->
-        {
-            // Your "Add new note" logic here
-            plugin.addNoteToSection(section.getId());
-        });
-
-        notesPanel.add(notesLabel, BorderLayout.WEST);
-        notesPanel.add(addNoteButton, BorderLayout.EAST);
-        expandedContentPanel.add(notesPanel, BorderLayout.NORTH);
-
-        // (B) "More content here..." in the center
         JPanel moreContentPanel = new JPanel();
         moreContentPanel.setLayout(new BoxLayout(moreContentPanel, BoxLayout.Y_AXIS));
-        moreContentPanel.setBackground(Helper.CONTENT_COLOR);
-        moreContentPanel.setBorder(new EmptyBorder(5, 8, 5, 8));
+        moreContentPanel.setBackground(Helper.DARKER_GREY_COLOR);
 
-// For each note, add a SectionNotePanel
         if (section.getNotes().isEmpty())
         {
-            String htmlText =
-                    "<html><body style='width:150px;'>"
-                            + "No notes in this section.<br>"
-                            + "Press the \"Add new note\" button to create one."
-                            + "</body></html>";
-
-            JLabel noNotesLabel = new JLabel(htmlText);
-            noNotesLabel.setForeground(Color.WHITE);
-            moreContentPanel.add(noNotesLabel);
+            moreContentPanel.add(createNoNotesMessage());
         }
         else
         {
@@ -158,183 +119,158 @@ public class SectionPanel extends JPanel
             {
                 SectionNotePanel notePanel = new SectionNotePanel(plugin, note, section.getId());
                 moreContentPanel.add(notePanel);
-
-                // Optional vertical gap between note panels
                 moreContentPanel.add(Box.createVerticalStrut(5));
             }
         }
 
         expandedContentPanel.add(moreContentPanel, BorderLayout.CENTER);
-
-        // Add the collapsible panel to the main panel
         add(expandedContentPanel, BorderLayout.CENTER);
     }
 
-    /**
-     * Creates a read-only text field for the section name.
-     */
+    private JPanel createNameActions(FlatTextField nameInput, MouseAdapter flatTextFieldMouseAdapter)
+    {
+        JPanel nameActions = new JPanel(new GridBagLayout())
+        {
+            @Override
+            public Dimension getPreferredSize()
+            {
+                return new Dimension(super.getPreferredSize().width, 40);
+            }
+        };
+        nameActions.setBackground(Helper.DARKER_GREY_COLOR);
+
+        JLabel moreOptions = new JLabel(MORE_OPTIONS_ICON);
+        moreOptions.setToolTipText("More options");
+        moreOptions.addMouseListener(new MouseAdapter()
+        {
+            @Override
+            public void mousePressed(MouseEvent e)
+            {
+                if (SwingUtilities.isLeftMouseButton(e))
+                {
+                    System.out.println("More options clicked!");
+                }
+            }
+
+            @Override
+            public void mouseEntered(MouseEvent e)
+            {
+                moreOptions.setIcon(MORE_OPTIONS_ICON_HOVER);
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e)
+            {
+                moreOptions.setIcon(MORE_OPTIONS_ICON);
+            }
+        });
+
+        JLabel addNote = new JLabel(ADD_NOTE_ICON);
+        addNote.setToolTipText("Add new note");
+        addNote.addMouseListener(new MouseAdapter()
+        {
+            @Override
+            public void mousePressed(MouseEvent e)
+            {
+                if (SwingUtilities.isLeftMouseButton(e))
+                {
+                    plugin.addNoteToSection(section.getId());
+                }
+            }
+
+            @Override
+            public void mouseEntered(MouseEvent e)
+            {
+                addNote.setIcon(ADD_NOTE_ICON_HOVER);
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e)
+            {
+                addNote.setIcon(ADD_NOTE_ICON);
+            }
+        });
+
+        GridBagConstraints gc = new GridBagConstraints();
+
+        // More Options button
+        gc.gridx = 0;
+        gc.gridy = 0;
+        gc.weightx = 0.0;
+        gc.insets = new Insets(0, 0, 0, 4); // 4px spacing to the right
+        gc.anchor = GridBagConstraints.CENTER;
+        nameActions.add(moreOptions, gc);
+
+        // Add Note button
+        gc.gridx = 1;
+        gc.gridy = 0;
+        gc.weightx = 0.0;
+        gc.insets = new Insets(0, 4, 0, 0); // 4px spacing to the left
+        gc.anchor = GridBagConstraints.CENTER;
+        nameActions.add(addNote, gc);
+
+        return nameActions;
+    }
+
+    private JPanel createNoNotesMessage()
+    {
+        // Create a panel to hold the message
+        JPanel noNotesPanel = new JPanel();
+        noNotesPanel.setLayout(new BoxLayout(noNotesPanel, BoxLayout.Y_AXIS));
+        noNotesPanel.setBackground(Helper.DARKER_GREY_COLOR);
+
+        // Create the label for the first line
+        JLabel noNotesText = new JLabel("There are no notes in this section.");
+        noNotesText.setFont(FontManager.getRunescapeSmallFont());
+        noNotesText.setForeground(Color.WHITE);
+        noNotesText.setAlignmentX(Component.LEFT_ALIGNMENT); // Left-align the text
+
+        // Create a sub-panel for the second line with icon and text
+        JPanel textWithIconPanel = new JPanel();
+        textWithIconPanel.setLayout(new BoxLayout(textWithIconPanel, BoxLayout.X_AXIS));
+        textWithIconPanel.setBackground(Helper.DARKER_GREY_COLOR);
+        textWithIconPanel.setAlignmentX(Component.LEFT_ALIGNMENT); // Left-align the panel
+
+        // Add "Press the " text
+        JLabel prefixText = new JLabel("Press the ");
+        prefixText.setFont(FontManager.getRunescapeSmallFont());
+        prefixText.setForeground(Color.WHITE);
+
+        // Add the icon
+        JLabel addNoteIconLabel = new JLabel(ADD_NOTE_ICON);
+
+        // Add " to create a new one" text
+        JLabel suffixText = new JLabel(" to create a new one.");
+        suffixText.setFont(FontManager.getRunescapeSmallFont());
+        suffixText.setForeground(Color.WHITE);
+
+        // Add text and icon components to the sub-panel
+        textWithIconPanel.add(prefixText);
+        textWithIconPanel.add(addNoteIconLabel);
+        textWithIconPanel.add(suffixText);
+
+        // Add components to the main panel
+        noNotesPanel.add(noNotesText);
+        noNotesPanel.add(Box.createVerticalStrut(5)); // Add spacing between lines
+        noNotesPanel.add(textWithIconPanel);
+
+        return noNotesPanel;
+    }
+
     private FlatTextField createNameInput(String initialText, MouseAdapter flatTextFieldMouseAdapter)
     {
         FlatTextField nameInput = new FlatTextField();
         nameInput.setText(initialText);
         nameInput.setBorder(null);
         nameInput.setEditable(false);
-        nameInput.setBackground(Helper.CONTENT_COLOR);
+        nameInput.setBackground(Helper.DARK_GREY_COLOR);
         nameInput.setPreferredSize(new Dimension(0, 24));
         nameInput.getTextField().setForeground(Color.WHITE);
         nameInput.getTextField().setBorder(new EmptyBorder(0, 8, 0, 0));
-
-        // Make the text field clickable in the normal (non-edit) state
         nameInput.getTextField().addMouseListener(flatTextFieldMouseAdapter);
-
         return nameInput;
     }
 
-    /**
-     * Create the panel holding action buttons (Edit/Remove/Save/Cancel).
-     */
-    private JPanel createNameActions(FlatTextField nameInput, MouseAdapter flatTextFieldMouseAdapter)
-    {
-        JPanel nameActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
-        nameActions.setBackground(Helper.CONTENT_COLOR);
-
-        // Edit button
-        edit.setFont(FontManager.getRunescapeSmallFont());
-        edit.setForeground(ColorScheme.LIGHT_GRAY_COLOR.darker());
-        edit.addMouseListener(new MouseAdapter()
-        {
-            @Override
-            public void mousePressed(MouseEvent e)
-            {
-                if (SwingUtilities.isLeftMouseButton(e))
-                {
-                    nameInput.getTextField().removeMouseListener(flatTextFieldMouseAdapter);
-                    nameInput.setEditable(true);
-                    updateNameActions(true);
-                }
-            }
-
-            @Override
-            public void mouseEntered(MouseEvent e)
-            {
-                edit.setForeground(ColorScheme.LIGHT_GRAY_COLOR.darker().darker());
-            }
-
-            @Override
-            public void mouseExited(MouseEvent e)
-            {
-                edit.setForeground(ColorScheme.LIGHT_GRAY_COLOR.darker());
-            }
-        });
-
-        // Remove button
-        remove.setFont(FontManager.getRunescapeSmallFont());
-        remove.setForeground(ColorScheme.LIGHT_GRAY_COLOR.darker());
-        remove.addMouseListener(new MouseAdapter()
-        {
-            @Override
-            public void mousePressed(MouseEvent e)
-            {
-                if (SwingUtilities.isLeftMouseButton(e))
-                {
-                    plugin.removeSection(section.getId());
-                }
-            }
-
-            @Override
-            public void mouseEntered(MouseEvent e)
-            {
-                remove.setForeground(ColorScheme.LIGHT_GRAY_COLOR.darker().darker());
-            }
-
-            @Override
-            public void mouseExited(MouseEvent e)
-            {
-                remove.setForeground(ColorScheme.LIGHT_GRAY_COLOR.darker());
-            }
-        });
-
-        // Save button
-        save.setFont(FontManager.getRunescapeSmallFont());
-        save.setForeground(ColorScheme.PROGRESS_COMPLETE_COLOR);
-        save.setVisible(false);
-        save.addMouseListener(new MouseAdapter()
-        {
-            @Override
-            public void mousePressed(MouseEvent e)
-            {
-                if (SwingUtilities.isLeftMouseButton(e))
-                {
-                    nameInput.getTextField().addMouseListener(flatTextFieldMouseAdapter);
-                    // Persist new name in plugin
-                    String newName = nameInput.getText();
-                    plugin.changeSectionName(newName, section.getId());
-
-                    nameInput.setEditable(false);
-                    updateNameActions(false);
-                    requestFocusInWindow();
-                }
-            }
-
-            @Override
-            public void mouseEntered(MouseEvent e)
-            {
-                if (save.isEnabled())
-                {
-                    save.setForeground(ColorScheme.PROGRESS_COMPLETE_COLOR.darker());
-                }
-            }
-
-            @Override
-            public void mouseExited(MouseEvent e)
-            {
-                save.setForeground(ColorScheme.PROGRESS_COMPLETE_COLOR);
-            }
-        });
-
-        // Cancel button
-        cancel.setFont(FontManager.getRunescapeSmallFont());
-        cancel.setForeground(ColorScheme.PROGRESS_ERROR_COLOR);
-        cancel.setVisible(false);
-        cancel.addMouseListener(new MouseAdapter()
-        {
-            @Override
-            public void mousePressed(MouseEvent e)
-            {
-                if (SwingUtilities.isLeftMouseButton(e))
-                {
-                    nameInput.getTextField().addMouseListener(flatTextFieldMouseAdapter);
-                    nameInput.setEditable(false);
-                    nameInput.getTextField().setCaretPosition(0);
-                    updateNameActions(false);
-                    requestFocusInWindow();
-                }
-            }
-
-            @Override
-            public void mouseEntered(MouseEvent e)
-            {
-                cancel.setForeground(ColorScheme.PROGRESS_ERROR_COLOR.darker());
-            }
-
-            @Override
-            public void mouseExited(MouseEvent e)
-            {
-                cancel.setForeground(ColorScheme.PROGRESS_ERROR_COLOR);
-            }
-        });
-
-        nameActions.add(edit);
-        nameActions.add(remove);
-        nameActions.add(save);
-        nameActions.add(cancel);
-
-        return nameActions;
-    }
-
-    /**
-     * Sets up min/max label (arrow icon) and toggles expandedContentPanel visibility.
-     */
     private void setupMinMaxLabel()
     {
         updateMinMaxLabel();
@@ -359,18 +295,20 @@ public class SectionPanel extends JPanel
                 if (SwingUtilities.isLeftMouseButton(e))
                 {
                     section.setMaximized(!section.isMaximized());
-                    plugin.changeSectionIsExpanded(section.isMaximized(), section.getId());
+                    plugin.getDataManager().updateConfig();
                     updateMinMaxLabel();
-                    // Toggle entire collapsible panel (notes + more content)
+
+                    // Toggle visibility of expandedContentPanel
                     expandedContentPanel.setVisible(section.isMaximized());
+
+                    // Adjust layout to ensure no remnant space
+                    revalidate();
+                    repaint();
                 }
             }
         });
     }
 
-    /**
-     * Updates the arrow icon & tooltip based on whether the panel is expanded.
-     */
     private void updateMinMaxLabel()
     {
         if (section.isMaximized())
@@ -385,14 +323,13 @@ public class SectionPanel extends JPanel
         }
     }
 
-    /**
-     * Toggles visibility between Edit/Remove vs. Save/Cancel.
-     */
-    private void updateNameActions(boolean editing)
+    private static BufferedImage setImageOpacity(BufferedImage image, float opacity)
     {
-        save.setVisible(editing);
-        cancel.setVisible(editing);
-        edit.setVisible(!editing);
-        remove.setVisible(!editing);
+        BufferedImage newImage = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2d = newImage.createGraphics();
+        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, opacity));
+        g2d.drawImage(image, 0, 0, null);
+        g2d.dispose();
+        return newImage;
     }
 }

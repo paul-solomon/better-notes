@@ -3,134 +3,314 @@ package com.betterNotes.ui;
 import com.betterNotes.BetterNotesPlugin;
 import com.betterNotes.entities.BetterNotesNote;
 import com.betterNotes.utility.Helper;
-import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
+import net.runelite.client.util.ImageUtil;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import java.awt.*;
+import java.awt.event.FocusEvent;
+import java.awt.event.FocusListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.image.BufferedImage;
 
 /**
  * Panel for displaying an individual note within a section,
- * with a lighter background and some spacing.
+ * with a collapsible area for content editing and auto-save.
  */
 public class SectionNotePanel extends JPanel
 {
     private final BetterNotesPlugin plugin;
     private final BetterNotesNote note;
 
-    private final String sectionId;
+    private static final ImageIcon MORE_DETAILS_ICON;
+    private static final ImageIcon MORE_DETAILS_ICON_HOVER;
+    private static final ImageIcon FULL_SCREEN_ICON;
+    private static final ImageIcon FULL_SCREEN_ICON_HOVER;
 
-    // Similar to your "Remove" label for sections
-    private final JLabel removeLabel = new JLabel("Remove");
+    static
+    {
+        BufferedImage moreDetailsImage = ImageUtil.loadImageResource(BetterNotesPlugin.class, "/more_options.png");
+        MORE_DETAILS_ICON = new ImageIcon(setImageOpacity(ImageUtil.resizeImage(moreDetailsImage, 16, 16), 0.5f));
+        MORE_DETAILS_ICON_HOVER = new ImageIcon(setImageOpacity(ImageUtil.resizeImage(moreDetailsImage, 16, 16), 1.0f));
+
+        BufferedImage fullScreenImage = ImageUtil.loadImageResource(BetterNotesPlugin.class, "/expand.png");
+        FULL_SCREEN_ICON = new ImageIcon(setImageOpacity(ImageUtil.resizeImage(fullScreenImage, 16, 16), 0.5f));
+        FULL_SCREEN_ICON_HOVER = new ImageIcon(setImageOpacity(ImageUtil.resizeImage(fullScreenImage, 16, 16), 1.0f));
+    }
+
+    private final JLabel moreDetailsIcon = new JLabel();
+    private final JLabel fullScreenIcon = new JLabel();
+    private final JLabel minMaxLabel = new JLabel();
+    private final JPanel expandedContentPanel = new JPanel();
+    private final JTextPane contentTextPane = new JTextPane();
+    private Timer saveTimer;
 
     public SectionNotePanel(final BetterNotesPlugin plugin, final BetterNotesNote note, final String sectionId)
     {
         this.plugin = plugin;
         this.note = note;
-        this.sectionId = sectionId;
 
-        // Use a lighter background than your main "Helper.CONTENT_COLOR"
-        setBackground(Helper.CONTENT_COLOR.brighter());
+        // Set the panel background and indentation
+        setBackground(Helper.DARK_GREY_COLOR);
+        setBorder(new EmptyBorder(8, 8, 8, 8)); // Indentation of 8px on each side
+        setLayout(new BorderLayout());
+        setFocusable(false);
+        setRequestFocusEnabled(false);
 
-        // Add some padding inside this panel: top, left, bottom, right = 8px
-        setBorder(new EmptyBorder(16, 16, 16, 16));
+        // === Header (Top Bar) ===
+        JPanel headerPanel = new JPanel(new GridBagLayout());
+        headerPanel.setBackground(Helper.DARK_GREY_COLOR);
+        headerPanel.setPreferredSize(new Dimension(0, 34)); // Fixed height for the header
 
-        // We'll use a simple BorderLayout for the main panel
-        setLayout(new BorderLayout(8, 0)); // 8 px horizontal gap
+        setupMinMaxLabel();
 
-        // --- TOP ROW: Name (left), Remove (right) ---
-        JPanel topRow = new JPanel(new BorderLayout());
-        topRow.setOpaque(false); // let the background show through
-        topRow.setBorder(new EmptyBorder(0, 0, 4, 0)); // small bottom gap
+        JLabel titleLabel = new JLabel(note.getName());
+        titleLabel.setFont(FontManager.getRunescapeSmallFont());
+        titleLabel.setForeground(Color.WHITE);
 
-        JLabel nameLabel = new JLabel(note.getName());
-        nameLabel.setFont(FontManager.getRunescapeSmallFont());
-        nameLabel.setForeground(Color.WHITE);
+        setupIcons();
 
-        topRow.add(nameLabel, BorderLayout.WEST);
+        GridBagConstraints gc = new GridBagConstraints();
+        gc.gridx = 0;
+        gc.gridy = 0;
+        gc.weightx = 0;
+        gc.anchor = GridBagConstraints.WEST;
+        headerPanel.add(minMaxLabel, gc);
 
-        removeLabel.setFont(FontManager.getRunescapeSmallFont());
-        removeLabel.setForeground(ColorScheme.LIGHT_GRAY_COLOR.darker());
-        removeLabel.addMouseListener(new MouseAdapter()
+        gc.gridx = 1;
+        gc.weightx = 1.0;
+        gc.fill = GridBagConstraints.HORIZONTAL;
+        headerPanel.add(titleLabel, gc);
+
+        JPanel iconsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0)); // 4px spacing between icons
+        iconsPanel.setOpaque(false);
+        iconsPanel.add(moreDetailsIcon);
+        iconsPanel.add(fullScreenIcon);
+
+        gc.gridx = 2;
+        gc.weightx = 0;
+        headerPanel.add(iconsPanel, gc);
+
+        add(headerPanel, BorderLayout.NORTH);
+
+        // === Expandable Content ===
+        expandedContentPanel.setBackground(Helper.DARK_GREY_COLOR);
+        expandedContentPanel.setLayout(new BorderLayout());
+        expandedContentPanel.setVisible(note.isMaximized());
+
+        setupContentTextPane();
+
+        JScrollPane contentScrollPane = new JScrollPane(contentTextPane);
+        contentScrollPane.setPreferredSize(new Dimension(0, 400)); // Fixed height of 400px
+        contentScrollPane.setBorder(BorderFactory.createEmptyBorder());
+        contentScrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
+
+        expandedContentPanel.add(contentScrollPane, BorderLayout.CENTER);
+        add(expandedContentPanel, BorderLayout.CENTER);
+
+        setupSaveDebounce();
+    }
+
+    private void setupMinMaxLabel()
+    {
+        BufferedImage minimizeIcon = ImageUtil.loadImageResource(BetterNotesPlugin.class, "/chevron_down.png");
+        BufferedImage minimizeHoverIcon = ImageUtil.luminanceOffset(minimizeIcon, -150);
+        BufferedImage maximizeIcon = ImageUtil.loadImageResource(BetterNotesPlugin.class, "/chevron_right.png");
+        BufferedImage maximizeHoverIcon = ImageUtil.luminanceOffset(maximizeIcon, -150);
+
+        final ImageIcon MINIMIZE_ICON = new ImageIcon(ImageUtil.resizeImage(minimizeIcon, 16, 16));
+        final ImageIcon MINIMIZE_ICON_HOVER = new ImageIcon(ImageUtil.resizeImage(minimizeHoverIcon, 16, 16));
+        final ImageIcon MAXIMIZE_ICON = new ImageIcon(ImageUtil.resizeImage(maximizeIcon, 16, 16));
+        final ImageIcon MAXIMIZE_ICON_HOVER = new ImageIcon(ImageUtil.resizeImage(maximizeHoverIcon, 16, 16));
+
+        updateMinMaxLabel(MINIMIZE_ICON, MAXIMIZE_ICON);
+
+        minMaxLabel.addMouseListener(new MouseAdapter()
+        {
+            @Override
+            public void mouseEntered(MouseEvent e)
+            {
+                minMaxLabel.setIcon(note.isMaximized() ? MINIMIZE_ICON_HOVER : MAXIMIZE_ICON_HOVER);
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e)
+            {
+                updateMinMaxLabel(MINIMIZE_ICON, MAXIMIZE_ICON);
+            }
+
+            @Override
+            public void mousePressed(MouseEvent e)
+            {
+                if (SwingUtilities.isLeftMouseButton(e))
+                {
+                    note.setMaximized(!note.isMaximized());
+                    plugin.getDataManager().updateConfig();
+                    expandedContentPanel.setVisible(note.isMaximized());
+                    revalidate();
+                    repaint();
+                }
+            }
+        });
+    }
+
+    private void updateMinMaxLabel(ImageIcon minimizeIcon, ImageIcon maximizeIcon)
+    {
+        if (note.isMaximized())
+        {
+            minMaxLabel.setIcon(minimizeIcon);
+            minMaxLabel.setToolTipText("Click to collapse");
+        }
+        else
+        {
+            minMaxLabel.setIcon(maximizeIcon);
+            minMaxLabel.setToolTipText("Click to expand");
+        }
+    }
+
+    private void setupIcons()
+    {
+        moreDetailsIcon.setIcon(MORE_DETAILS_ICON);
+        moreDetailsIcon.setToolTipText("View more details");
+        moreDetailsIcon.addMouseListener(new MouseAdapter()
         {
             @Override
             public void mousePressed(MouseEvent e)
             {
                 if (SwingUtilities.isLeftMouseButton(e))
                 {
-                    // Hook into your plugin's "remove note" logic
-//                    plugin.removeNote(note);
-                    plugin.deleteNoteFromSection(note.getId(), sectionId);
+                    plugin.getPanel().showNoteOverview(note);
                 }
             }
 
             @Override
             public void mouseEntered(MouseEvent e)
             {
-                removeLabel.setForeground(ColorScheme.LIGHT_GRAY_COLOR.darker().darker());
+                moreDetailsIcon.setIcon(MORE_DETAILS_ICON_HOVER);
             }
 
             @Override
             public void mouseExited(MouseEvent e)
             {
-                removeLabel.setForeground(ColorScheme.LIGHT_GRAY_COLOR.darker());
+                moreDetailsIcon.setIcon(MORE_DETAILS_ICON);
             }
         });
-        topRow.add(removeLabel, BorderLayout.EAST);
 
-        add(topRow, BorderLayout.NORTH);
-
-        // --- MIDDLE SECTION: Vertical layout for preview & "Open details" button ---
-        JPanel middleSection = new JPanel();
-        middleSection.setOpaque(false);
-        // Stack components vertically
-        middleSection.setLayout(new BoxLayout(middleSection, BoxLayout.Y_AXIS));
-
-        // Limit note content to 200 chars
-        String content = note.getContent() != null ? note.getContent() : "";
-        if (content.length() > 200)
+        fullScreenIcon.setIcon(FULL_SCREEN_ICON);
+        fullScreenIcon.setToolTipText("Open in full screen");
+        fullScreenIcon.addMouseListener(new MouseAdapter()
         {
-            content = content.substring(0, 200);
-        }
+            @Override
+            public void mousePressed(MouseEvent e)
+            {
+                // Hook for full-screen logic
+            }
 
-        // Use HTML if you want wrapping at ~200px
-        String htmlPreview = String.format(
-                "<html><body style='width:200px;'>%s</body></html>",
-                content
-        );
-        JLabel previewLabel = new JLabel(htmlPreview);
-        previewLabel.setFont(FontManager.getRunescapeSmallFont());
-        previewLabel.setForeground(Color.WHITE);
+            @Override
+            public void mouseEntered(MouseEvent e)
+            {
+                fullScreenIcon.setIcon(FULL_SCREEN_ICON_HOVER);
+            }
 
-        // Make sure each component aligns on the left (or center, if you prefer)
-        previewLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+            @Override
+            public void mouseExited(MouseEvent e)
+            {
+                fullScreenIcon.setIcon(FULL_SCREEN_ICON);
+            }
+        });
+    }
 
-        // Add the preview label
-        middleSection.add(previewLabel);
+    private void setupContentTextPane()
+    {
+        contentTextPane.setText(note.getContent());
+        contentTextPane.setFont(FontManager.getRunescapeSmallFont());
+        contentTextPane.setBackground(Helper.DARK_GREY_COLOR);
+        contentTextPane.setForeground(Color.WHITE);
+        contentTextPane.setCaretColor(Color.WHITE);
+        contentTextPane.setBorder(new EmptyBorder(8, 8, 8, 8));
 
-        // Add some vertical spacing between preview and the button
-        middleSection.add(Box.createVerticalStrut(5));
-
-        // "Open details" button
-        JButton openDetailsButton = new JButton("Open details");
-        openDetailsButton.setBackground(Helper.BACKGROUND_COLOR);
-        openDetailsButton.setForeground(Color.WHITE);
-        openDetailsButton.setFont(FontManager.getRunescapeSmallFont());
-        // Align left as well
-        openDetailsButton.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        openDetailsButton.addActionListener(e ->
+        contentTextPane.addMouseListener(new MouseAdapter()
         {
-            // TODO: Show a detailed view for this note
-            plugin.getPanel().showNoteOverview(note);
+            @Override
+            public void mousePressed(MouseEvent e)
+            {
+                SwingUtilities.invokeLater(() -> contentTextPane.requestFocusInWindow());
+                e.consume();
+            }
         });
 
-        middleSection.add(openDetailsButton);
+        contentTextPane.addFocusListener(new FocusListener()
+        {
+            @Override
+            public void focusGained(FocusEvent e)
+            {
+                System.out.println("TextPane gained focus");
+            }
 
-        // Finally, add the middle section to the center of the panel
-        add(middleSection, BorderLayout.CENTER);
+            @Override
+            public void focusLost(FocusEvent e)
+            {
+                System.out.println("TextPane lost focus");
+            }
+        });
+
+        contentTextPane.getDocument().addDocumentListener(new DocumentListener()
+        {
+            @Override
+            public void insertUpdate(DocumentEvent e)
+            {
+                onTextChanged();
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e)
+            {
+                onTextChanged();
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e)
+            {
+                onTextChanged();
+            }
+        });
+    }
+
+    private void setupSaveDebounce()
+    {
+        saveTimer = new Timer(500, e -> saveNoteContent());
+        saveTimer.setRepeats(false);
+    }
+
+    private void onTextChanged()
+    {
+        if (saveTimer.isRunning())
+        {
+            saveTimer.restart();
+        }
+        else
+        {
+            saveTimer.start();
+        }
+    }
+
+    private void saveNoteContent()
+    {
+        note.setContent(contentTextPane.getText());
+        plugin.getDataManager().updateConfig();
+    }
+
+    private static BufferedImage setImageOpacity(BufferedImage image, float opacity)
+    {
+        BufferedImage newImage = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2d = newImage.createGraphics();
+        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, opacity));
+        g2d.drawImage(image, 0, 0, null);
+        g2d.dispose();
+        return newImage;
     }
 }

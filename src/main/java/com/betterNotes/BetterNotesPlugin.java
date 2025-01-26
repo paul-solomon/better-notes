@@ -121,26 +121,7 @@ public class BetterNotesPlugin extends Plugin
 
 	public void addSection()
 	{
-		final String msg = "Enter the name of this section (max 50 chars).";
-		String name = JOptionPane.showInputDialog(panel,
-				msg,
-				"Add New Category",
-				JOptionPane.PLAIN_MESSAGE);
-
-		// cancel button was clicked
-		if (name == null || name.isEmpty())
-		{
-			return;
-		}
-
-		if (name.length() > 50)
-		{
-			name = name.substring(0, 50);
-		}
-
-		final String newName = name;
-
-		BetterNotesSection newSection = new BetterNotesSection(newName);
+		BetterNotesSection newSection = new BetterNotesSection("New section");
 
 		sections.add(newSection);
 		cache.addSection(newSection);
@@ -161,16 +142,6 @@ public class BetterNotesPlugin extends Plugin
 				.findFirst().ifPresent(found -> found.setName(newName));
 
 		cache.changeSectionName(newName, sectionIdToChange);
-
-		dataManager.updateConfig();
-	}
-
-	public void changeSectionIsExpanded(Boolean isExpanded, String sectionIdToChange) {
-		sections.stream()
-				.filter(section -> section.getId().equals(sectionIdToChange))
-				.findFirst().ifPresent(found -> found.setMaximized(isExpanded));
-
-		cache.changeIsExpanded(isExpanded, sectionIdToChange);
 
 		dataManager.updateConfig();
 	}

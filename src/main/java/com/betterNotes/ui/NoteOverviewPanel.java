@@ -59,7 +59,7 @@ public class NoteOverviewPanel extends JPanel
         this.spriteManager = spriteManager;
 
         setLayout(new BorderLayout());
-        setBackground(Helper.CONTENT_COLOR);
+        setBackground(Helper.DARK_GREY_COLOR);
 
         // 1) TOP ROW: Just the Back button, right-aligned
         JPanel topRow = buildTopRow();
@@ -67,7 +67,7 @@ public class NoteOverviewPanel extends JPanel
 
         // 2) MIDDLE PANEL: Contains (a) Title row, (b) spacing, (c) text area
         JPanel middlePanel = new JPanel(new BorderLayout());
-        middlePanel.setBackground(Helper.CONTENT_COLOR);
+        middlePanel.setBackground(Helper.DARK_GREY_COLOR);
 
         // 2a) Title row
         JPanel titleRow = buildTitleRow();
@@ -94,10 +94,10 @@ public class NoteOverviewPanel extends JPanel
     private JPanel buildTopRow()
     {
         JPanel topRow = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
-        topRow.setBackground(Helper.CONTENT_COLOR);
+        topRow.setBackground(Helper.DARK_GREY_COLOR);
 
         JButton backButton = new JButton("Back");
-        backButton.setBackground(Helper.BACKGROUND_COLOR);
+        backButton.setBackground(Helper.DARKER_GREY_COLOR);
         backButton.setForeground(Color.WHITE);
         backButton.setFont(FontManager.getRunescapeSmallFont());
         backButton.addActionListener(e ->
@@ -117,7 +117,7 @@ public class NoteOverviewPanel extends JPanel
     private JPanel buildTitleRow()
     {
         JPanel titleRow = new JPanel(new BorderLayout());
-        titleRow.setBackground(Helper.CONTENT_COLOR);
+        titleRow.setBackground(Helper.DARK_GREY_COLOR);
         titleRow.setBorder(new EmptyBorder(5, 10, 5, 10));
 
         // Title input on the LEFT
@@ -127,7 +127,7 @@ public class NoteOverviewPanel extends JPanel
         titleInput.getTextField().setFont(
                 titleInput.getTextField().getFont().deriveFont(16f) // 16px font
         );
-        titleInput.setBackground(Helper.BACKGROUND_COLOR);
+        titleInput.setBackground(Helper.DARKER_GREY_COLOR);
         titleInput.getTextField().setForeground(Color.WHITE);
         titleInput.getTextField().setBorder(new EmptyBorder(0, 8, 0, 8));
 
@@ -135,7 +135,7 @@ public class NoteOverviewPanel extends JPanel
 
         // Edit/Save/Cancel labels on the RIGHT
         JPanel editPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-        editPanel.setBackground(Helper.CONTENT_COLOR);
+        editPanel.setBackground(Helper.DARK_GREY_COLOR);
 
         setupEditingLabels();
         editPanel.add(editLabel);
@@ -172,12 +172,12 @@ public class NoteOverviewPanel extends JPanel
     private JPanel buildItemSelectionRow()
     {
         JPanel itemSelectionRow = new JPanel(new BorderLayout());
-        itemSelectionRow.setBackground(Helper.CONTENT_COLOR);
+        itemSelectionRow.setBackground(Helper.DARK_GREY_COLOR);
         itemSelectionRow.setBorder(new EmptyBorder(5, 10, 5, 10));
 
         // A button to pick the note's icon
         JButton selectItemButton = new JButton("Select item icon");
-        selectItemButton.setBackground(Helper.BACKGROUND_COLOR);
+        selectItemButton.setBackground(Helper.DARKER_GREY_COLOR);
         selectItemButton.setForeground(Color.WHITE);
         selectItemButton.setFont(FontManager.getRunescapeSmallFont());
         // Pass "this" so the plugin can refresh this panel after selection
@@ -185,7 +185,7 @@ public class NoteOverviewPanel extends JPanel
         itemSelectionRow.add(selectItemButton, BorderLayout.CENTER);
 
         // The item icon container at the bottom
-        itemImageContainer.setBackground(Helper.BACKGROUND_COLOR.darker());
+        itemImageContainer.setBackground(Helper.DARKER_GREY_COLOR.darker());
         itemImageContainer.setPreferredSize(new Dimension(50, 50));
         itemImageContainer.setBorder(new EmptyBorder(5, 5, 5, 5));
 

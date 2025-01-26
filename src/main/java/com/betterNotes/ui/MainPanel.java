@@ -4,6 +4,7 @@ import com.betterNotes.BetterNotesPlugin;
 import com.betterNotes.entities.BetterNotesNote;
 import com.betterNotes.entities.BetterNotesSection;
 import net.runelite.client.game.SpriteManager;
+import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.PluginPanel;
 import net.runelite.client.util.ImageUtil;
 import com.betterNotes.utility.Helper;
@@ -28,7 +29,7 @@ public class MainPanel extends PluginPanel {
 
     static
     {
-        final BufferedImage addIcon = ImageUtil.loadImageResource(BetterNotesPlugin.class, "/add_icon.png");
+        final BufferedImage addIcon = ImageUtil.loadImageResource(BetterNotesPlugin.class, "/new.png");
         ADD_ICON = new ImageIcon(addIcon);
         ADD_HOVER_ICON = new ImageIcon(ImageUtil.alphaOffset(addIcon, -100));
         ADD_PRESSED_ICON = new ImageIcon(ImageUtil.alphaOffset(addIcon, -50));
@@ -63,7 +64,10 @@ public class MainPanel extends PluginPanel {
                 sectionsView.add(new SectionPanel(plugin, section, null), constraints);
                 constraints.gridy++;
 
-                sectionsView.add(Box.createRigidArea(new Dimension(0, 10)), constraints);
+                JPanel spacer = new JPanel();
+                spacer.setBackground(Helper.DARK_GREY_COLOR); // Set the desired color
+                spacer.setPreferredSize(new Dimension(0, 10)); // Match the size of the rigid area
+                sectionsView.add(spacer, constraints);
                 constraints.gridy++;
             }
         }
@@ -125,9 +129,10 @@ public class MainPanel extends PluginPanel {
 
         title.setText("Better Notes");
         title.setForeground(Color.WHITE);
+        title.setFont(FontManager.getRunescapeFont());
 
         JLabel addButton = new JLabel(ADD_ICON);
-        addButton.setToolTipText("Add new notes category");
+        addButton.setToolTipText("Add new section");
 
         addButton.addMouseListener(new MouseAdapter()
         {
@@ -150,7 +155,7 @@ public class MainPanel extends PluginPanel {
                     return;
                 }
 
-                create();
+                plugin.addSection();
                 addButton.setIcon(ADD_HOVER_ICON);
             }
 
@@ -173,18 +178,14 @@ public class MainPanel extends PluginPanel {
         add(topbarPanel, BorderLayout.NORTH);
 
         JPanel centerPanel = new JPanel(new BorderLayout());
-        centerPanel.setBackground(Helper.BACKGROUND_COLOR);
+        centerPanel.setBackground(Helper.DARKER_GREY_COLOR);
 
-        sectionsView.setBackground(Helper.BACKGROUND_COLOR);
+        sectionsView.setBackground(Helper.DARKER_GREY_COLOR);
 
         centerPanel.add(sectionsView, BorderLayout.CENTER);
 
         add(centerPanel, BorderLayout.CENTER);
 
         rebuild();
-    }
-
-    private void create() {
-       plugin.addSection();
     }
 }
