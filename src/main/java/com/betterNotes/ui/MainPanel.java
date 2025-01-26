@@ -3,6 +3,7 @@ package com.betterNotes.ui;
 import com.betterNotes.BetterNotesPlugin;
 import com.betterNotes.entities.BetterNotesNote;
 import com.betterNotes.entities.BetterNotesSection;
+import net.runelite.client.game.SpriteManager;
 import net.runelite.client.ui.PluginPanel;
 import net.runelite.client.util.ImageUtil;
 import com.betterNotes.utility.Helper;
@@ -80,7 +81,9 @@ public class MainPanel extends PluginPanel {
         NoteOverviewPanel notePanel = new NoteOverviewPanel(
                 plugin,
                 note,
-                this::showSectionsView // This method we'll define below
+                this::showSectionsView,
+                plugin.getItemManager(),
+                plugin.getSpriteManager()
         );
 
         // Add the note panel

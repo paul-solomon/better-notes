@@ -3,6 +3,7 @@ package com.betterNotes;
 import com.betterNotes.entities.BetterNotesNote;
 import com.betterNotes.entities.BetterNotesSection;
 import com.betterNotes.ui.MainPanel;
+import com.betterNotes.ui.NoteOverviewPanel;
 import com.google.gson.Gson;
 import com.google.inject.Provides;
 import javax.inject.Inject;
@@ -17,6 +18,9 @@ import net.runelite.api.events.GameStateChanged;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.game.ItemManager;
+import net.runelite.client.game.SpriteManager;
+import net.runelite.client.game.chatbox.ChatboxItemSearch;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
@@ -26,6 +30,7 @@ import net.runelite.client.util.ImageUtil;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @PluginDescriptor(
@@ -36,6 +41,18 @@ public class BetterNotesPlugin extends Plugin
 	public static final String CONFIG_GROUP = "betternotes";
 	@Inject
 	private Client client;
+
+	@Inject
+	@Getter
+	private ChatboxItemSearch itemSearch;
+
+	@Inject
+	@Getter
+	private ItemManager itemManager;
+
+	@Inject
+	@Getter
+	private SpriteManager spriteManager;
 
 	@Inject
 	private Gson gson;
@@ -206,6 +223,36 @@ public class BetterNotesPlugin extends Plugin
 
 		// 3) (Optional) Persist changes or refresh UI
 		dataManager.updateConfig();
+	}
+
+	public void setNoteIconFromSearch(final BetterNotesNote note, final NoteOverviewPanel detailPanel)
+	{
+		if (client.getGameState() != GameState.LOGGED_IN)
+		{
+			JOptionPane.showMessageDialog(panel,
+					"You must be logged in to search.",
+					"Cannot Search for Item",
+					JOptionPane.ERROR_MESSAGE);
+			return;
+		}
+
+		itemSearch
+				.tooltipText("Set note icon")
+				.onItemSelected((itemId) ->
+				{
+					clientThread.invokeLater(() ->
+					{
+						int finalId = itemManager.canonicalize(itemId);
+						note.setItemId(finalId);
+
+						// Optionally save right away
+						dataManager.updateConfig();
+
+						// Refresh the open detail panel, so user sees the new icon
+						detailPanel.refreshIcon();
+					});
+				})
+				.build();
 	}
 
 	public void redrawMainPanel() {
