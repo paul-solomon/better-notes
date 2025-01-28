@@ -15,6 +15,7 @@ import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
+import java.util.List;
 
 /**
  * Panel representing a single "section" with minimize/maximize functionality.
@@ -102,7 +103,7 @@ public class SectionPanel extends JPanel
         // === Expandable Content ===
         expandedContentPanel.setBackground(Helper.DARKER_GREY_COLOR);
         expandedContentPanel.setLayout(new BorderLayout());
-        expandedContentPanel.setBorder(new EmptyBorder(8, 8, 8, 8)); // Uniform padding on all sides
+        expandedContentPanel.setBorder(new EmptyBorder(5, 5, 5, 5)); // Uniform padding on all sides
         expandedContentPanel.setVisible(section.isMaximized());
 
         JPanel moreContentPanel = new JPanel();
@@ -115,11 +116,20 @@ public class SectionPanel extends JPanel
         }
         else
         {
-            for (BetterNotesNote note : section.getNotes())
+            List<BetterNotesNote> notes = section.getNotes();
+            int noteCount = notes.size();
+
+            for (int i = 0; i < noteCount; i++)
             {
+                BetterNotesNote note = notes.get(i);
                 SectionNotePanel notePanel = new SectionNotePanel(plugin, note, section.getId());
                 moreContentPanel.add(notePanel);
-                moreContentPanel.add(Box.createVerticalStrut(5));
+
+                // Add a vertical strut only if this is not the last note
+                if (i < noteCount - 1)
+                {
+                    moreContentPanel.add(Box.createVerticalStrut(5));
+                }
             }
         }
 

@@ -25,12 +25,18 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
+import net.runelite.client.ui.components.colorpicker.ColorPickerManager;
+import net.runelite.client.ui.components.colorpicker.RuneliteColorPicker;
 import net.runelite.client.util.ImageUtil;
 
+import java.awt.*;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 @Slf4j
 @PluginDescriptor(
@@ -72,6 +78,10 @@ public class BetterNotesPlugin extends Plugin
 
 	@Getter
 	private BetterNotesDataManager dataManager;
+
+	@Inject
+	@Getter
+	private ColorPickerManager colorPickerManager;
 
 	@Inject
 	@Getter
@@ -128,6 +138,22 @@ public class BetterNotesPlugin extends Plugin
 
 		dataManager.updateConfig();
 	}
+
+	public void openColorPicker(String title, Color startingColor, Consumer<Color> onColorChange)
+	{
+
+		RuneliteColorPicker colorPicker = getColorPickerManager().create(
+				SwingUtilities.windowForComponent(panel),
+				startingColor,
+				title,
+				false);
+
+		colorPicker.setLocation(panel.getLocationOnScreen());
+		colorPicker.setOnColorChange(onColorChange);
+
+		colorPicker.setVisible(true);
+	}
+
 
 	public void removeSection(String idToRemove) {
 		sections.removeIf(section -> section.getId().equals(idToRemove));

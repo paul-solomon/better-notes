@@ -62,6 +62,10 @@ public class BetterNotesDataManager {
         plugin.redrawMainPanel();
     }
 
+    public void updateConfigNoRedraw() {
+        final String jsonSections = gson.toJson(sections);
+        configManager.setConfiguration(CONFIG_GROUP, CONFIG_KEY_DATA, jsonSections);
+    }
 
     private <T> List<T> loadData(final String configKey, Type type)
     {

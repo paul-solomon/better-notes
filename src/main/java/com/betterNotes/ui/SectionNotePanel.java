@@ -8,19 +8,11 @@ import net.runelite.client.util.ImageUtil;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
 import java.awt.*;
-import java.awt.event.FocusEvent;
-import java.awt.event.FocusListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 
-/**
- * Panel for displaying an individual note within a section,
- * with a collapsible area for content editing and auto-save.
- */
 public class SectionNotePanel extends JPanel
 {
     private final BetterNotesPlugin plugin;
@@ -46,25 +38,40 @@ public class SectionNotePanel extends JPanel
     private final JLabel fullScreenIcon = new JLabel();
     private final JLabel minMaxLabel = new JLabel();
     private final JPanel expandedContentPanel = new JPanel();
-    private final JTextPane contentTextPane = new JTextPane();
-    private Timer saveTimer;
 
     public SectionNotePanel(final BetterNotesPlugin plugin, final BetterNotesNote note, final String sectionId)
     {
         this.plugin = plugin;
         this.note = note;
 
-        // Set the panel background and indentation
         setBackground(Helper.DARK_GREY_COLOR);
-        setBorder(new EmptyBorder(8, 8, 8, 8)); // Indentation of 8px on each side
+        setBorder(new EmptyBorder(8, 8, 8, 8));
         setLayout(new BorderLayout());
         setFocusable(false);
         setRequestFocusEnabled(false);
 
-        // === Header (Top Bar) ===
+        JPanel headerPanel = createHeaderPanel(note);
+        add(headerPanel, BorderLayout.NORTH);
+
+        expandedContentPanel.setBackground(Helper.DARK_GREY_COLOR);
+        expandedContentPanel.setLayout(new BorderLayout());
+        expandedContentPanel.setVisible(note.isMaximized());
+
+        ContentEditorPanel contentEditorPanel = new ContentEditorPanel(note, plugin);
+        JScrollPane contentScrollPane = new JScrollPane(contentEditorPanel);
+        contentScrollPane.setPreferredSize(new Dimension(0, 400));
+        contentScrollPane.setBorder(BorderFactory.createEmptyBorder());
+        contentScrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
+
+        expandedContentPanel.add(contentScrollPane, BorderLayout.CENTER);
+        add(expandedContentPanel, BorderLayout.CENTER);
+    }
+
+    private JPanel createHeaderPanel(BetterNotesNote note)
+    {
         JPanel headerPanel = new JPanel(new GridBagLayout());
         headerPanel.setBackground(Helper.DARK_GREY_COLOR);
-        headerPanel.setPreferredSize(new Dimension(0, 34)); // Fixed height for the header
+        headerPanel.setPreferredSize(new Dimension(0, 34));
 
         setupMinMaxLabel();
 
@@ -86,7 +93,7 @@ public class SectionNotePanel extends JPanel
         gc.fill = GridBagConstraints.HORIZONTAL;
         headerPanel.add(titleLabel, gc);
 
-        JPanel iconsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0)); // 4px spacing between icons
+        JPanel iconsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
         iconsPanel.setOpaque(false);
         iconsPanel.add(moreDetailsIcon);
         iconsPanel.add(fullScreenIcon);
@@ -95,81 +102,7 @@ public class SectionNotePanel extends JPanel
         gc.weightx = 0;
         headerPanel.add(iconsPanel, gc);
 
-        add(headerPanel, BorderLayout.NORTH);
-
-        // === Expandable Content ===
-        expandedContentPanel.setBackground(Helper.DARK_GREY_COLOR);
-        expandedContentPanel.setLayout(new BorderLayout());
-        expandedContentPanel.setVisible(note.isMaximized());
-
-        setupContentTextPane();
-
-        JScrollPane contentScrollPane = new JScrollPane(contentTextPane);
-        contentScrollPane.setPreferredSize(new Dimension(0, 400)); // Fixed height of 400px
-        contentScrollPane.setBorder(BorderFactory.createEmptyBorder());
-        contentScrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
-
-        expandedContentPanel.add(contentScrollPane, BorderLayout.CENTER);
-        add(expandedContentPanel, BorderLayout.CENTER);
-
-        setupSaveDebounce();
-    }
-
-    private void setupMinMaxLabel()
-    {
-        BufferedImage minimizeIcon = ImageUtil.loadImageResource(BetterNotesPlugin.class, "/chevron_down.png");
-        BufferedImage minimizeHoverIcon = ImageUtil.luminanceOffset(minimizeIcon, -150);
-        BufferedImage maximizeIcon = ImageUtil.loadImageResource(BetterNotesPlugin.class, "/chevron_right.png");
-        BufferedImage maximizeHoverIcon = ImageUtil.luminanceOffset(maximizeIcon, -150);
-
-        final ImageIcon MINIMIZE_ICON = new ImageIcon(ImageUtil.resizeImage(minimizeIcon, 16, 16));
-        final ImageIcon MINIMIZE_ICON_HOVER = new ImageIcon(ImageUtil.resizeImage(minimizeHoverIcon, 16, 16));
-        final ImageIcon MAXIMIZE_ICON = new ImageIcon(ImageUtil.resizeImage(maximizeIcon, 16, 16));
-        final ImageIcon MAXIMIZE_ICON_HOVER = new ImageIcon(ImageUtil.resizeImage(maximizeHoverIcon, 16, 16));
-
-        updateMinMaxLabel(MINIMIZE_ICON, MAXIMIZE_ICON);
-
-        minMaxLabel.addMouseListener(new MouseAdapter()
-        {
-            @Override
-            public void mouseEntered(MouseEvent e)
-            {
-                minMaxLabel.setIcon(note.isMaximized() ? MINIMIZE_ICON_HOVER : MAXIMIZE_ICON_HOVER);
-            }
-
-            @Override
-            public void mouseExited(MouseEvent e)
-            {
-                updateMinMaxLabel(MINIMIZE_ICON, MAXIMIZE_ICON);
-            }
-
-            @Override
-            public void mousePressed(MouseEvent e)
-            {
-                if (SwingUtilities.isLeftMouseButton(e))
-                {
-                    note.setMaximized(!note.isMaximized());
-                    plugin.getDataManager().updateConfig();
-                    expandedContentPanel.setVisible(note.isMaximized());
-                    revalidate();
-                    repaint();
-                }
-            }
-        });
-    }
-
-    private void updateMinMaxLabel(ImageIcon minimizeIcon, ImageIcon maximizeIcon)
-    {
-        if (note.isMaximized())
-        {
-            minMaxLabel.setIcon(minimizeIcon);
-            minMaxLabel.setToolTipText("Click to collapse");
-        }
-        else
-        {
-            minMaxLabel.setIcon(maximizeIcon);
-            minMaxLabel.setToolTipText("Click to expand");
-        }
+        return headerPanel;
     }
 
     private void setupIcons()
@@ -224,84 +157,47 @@ public class SectionNotePanel extends JPanel
         });
     }
 
-    private void setupContentTextPane()
+    private void setupMinMaxLabel()
     {
-        contentTextPane.setText(note.getContent());
-        contentTextPane.setFont(FontManager.getRunescapeSmallFont());
-        contentTextPane.setBackground(Helper.DARK_GREY_COLOR);
-        contentTextPane.setForeground(Color.WHITE);
-        contentTextPane.setCaretColor(Color.WHITE);
-        contentTextPane.setBorder(new EmptyBorder(8, 8, 8, 8));
+        BufferedImage minimizeIcon = ImageUtil.loadImageResource(BetterNotesPlugin.class, "/chevron_down.png");
+        BufferedImage minimizeHoverIcon = ImageUtil.luminanceOffset(minimizeIcon, -150);
+        BufferedImage maximizeIcon = ImageUtil.loadImageResource(BetterNotesPlugin.class, "/chevron_right.png");
+        BufferedImage maximizeHoverIcon = ImageUtil.luminanceOffset(maximizeIcon, -150);
 
-        contentTextPane.addMouseListener(new MouseAdapter()
+        final ImageIcon MINIMIZE_ICON = new ImageIcon(ImageUtil.resizeImage(minimizeIcon, 16, 16));
+        final ImageIcon MINIMIZE_ICON_HOVER = new ImageIcon(ImageUtil.resizeImage(minimizeHoverIcon, 16, 16));
+        final ImageIcon MAXIMIZE_ICON = new ImageIcon(ImageUtil.resizeImage(maximizeIcon, 16, 16));
+        final ImageIcon MAXIMIZE_ICON_HOVER = new ImageIcon(ImageUtil.resizeImage(maximizeHoverIcon, 16, 16));
+
+        updateMinMaxLabel(MINIMIZE_ICON, MAXIMIZE_ICON);
+
+        minMaxLabel.addMouseListener(new MouseAdapter()
         {
             @Override
             public void mousePressed(MouseEvent e)
             {
-                SwingUtilities.invokeLater(() -> contentTextPane.requestFocusInWindow());
-                e.consume();
-            }
-        });
-
-        contentTextPane.addFocusListener(new FocusListener()
-        {
-            @Override
-            public void focusGained(FocusEvent e)
-            {
-                System.out.println("TextPane gained focus");
-            }
-
-            @Override
-            public void focusLost(FocusEvent e)
-            {
-                System.out.println("TextPane lost focus");
-            }
-        });
-
-        contentTextPane.getDocument().addDocumentListener(new DocumentListener()
-        {
-            @Override
-            public void insertUpdate(DocumentEvent e)
-            {
-                onTextChanged();
-            }
-
-            @Override
-            public void removeUpdate(DocumentEvent e)
-            {
-                onTextChanged();
-            }
-
-            @Override
-            public void changedUpdate(DocumentEvent e)
-            {
-                onTextChanged();
+                if (SwingUtilities.isLeftMouseButton(e))
+                {
+                    note.setMaximized(!note.isMaximized());
+                    plugin.getDataManager().updateConfig();
+                    expandedContentPanel.setVisible(note.isMaximized());
+                    revalidate();
+                    repaint();
+                }
             }
         });
     }
 
-    private void setupSaveDebounce()
+    private void updateMinMaxLabel(ImageIcon minimizeIcon, ImageIcon maximizeIcon)
     {
-        saveTimer = new Timer(500, e -> saveNoteContent());
-        saveTimer.setRepeats(false);
-    }
-
-    private void onTextChanged()
-    {
-        if (saveTimer.isRunning())
+        if (note.isMaximized())
         {
-            saveTimer.restart();
+            minMaxLabel.setIcon(minimizeIcon);
         }
         else
         {
-            saveTimer.start();
+            minMaxLabel.setIcon(maximizeIcon);
         }
-    }
-
-    private void saveNoteContent()
-    {
-        note.setContent(contentTextPane.getText());
-        plugin.getDataManager().updateConfig();
     }
 
     private static BufferedImage setImageOpacity(BufferedImage image, float opacity)
