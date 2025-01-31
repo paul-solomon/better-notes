@@ -12,6 +12,8 @@ import com.betterNotes.utility.Helper;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
@@ -44,8 +46,7 @@ public class MainPanel extends PluginPanel {
         buildMainUI();
     }
 
-    public void rebuild()
-    {
+    public void rebuild() {
         GridBagConstraints constraints = new GridBagConstraints();
         constraints.fill = GridBagConstraints.HORIZONTAL;
         constraints.weightx = 1;
@@ -53,21 +54,35 @@ public class MainPanel extends PluginPanel {
 
         sectionsView.removeAll();
 
-        if (plugin.getSections().isEmpty())
-        {
-//            pointsView.add(noPointsPanel, constraints);
-        }
-        else
-        {
-            for (final BetterNotesSection section : plugin.getSections())
-            {
+        // Check if there are any sections
+        if (plugin.getSections().isEmpty() && plugin.getUnassignedNotesSection() == null) {
+            // Handle the case where there are no sections or unassigned notes
+            // You can add a placeholder panel or leave it empty
+            JLabel noSectionsLabel = new JLabel("No sections available.");
+            noSectionsLabel.setForeground(Color.LIGHT_GRAY);
+            noSectionsLabel.setHorizontalAlignment(SwingConstants.CENTER);
+            sectionsView.add(noSectionsLabel, constraints);
+            constraints.gridy++;
+        } else {
+            // Add regular sections
+            for (final BetterNotesSection section : plugin.getSections()) {
                 sectionsView.add(new SectionPanel(plugin, section, null), constraints);
                 constraints.gridy++;
 
+                // Add a spacer between sections
                 JPanel spacer = new JPanel();
-                spacer.setBackground(Helper.DARK_GREY_COLOR); // Set the desired color
-                spacer.setPreferredSize(new Dimension(0, 10)); // Match the size of the rigid area
+                spacer.setBackground(Helper.DARK_GREY_COLOR);
+                spacer.setPreferredSize(new Dimension(0, 10));
                 sectionsView.add(spacer, constraints);
+                constraints.gridy++;
+            }
+
+            // Add unassigned notes section if present
+            BetterNotesSection unassignedNotesSection = plugin.getUnassignedNotesSection();
+            if (unassignedNotesSection != null && !unassignedNotesSection.getNotes().isEmpty()) {
+                SectionPanel unassignedPanel = new SectionPanel(plugin, unassignedNotesSection, null);
+                unassignedPanel.setBackground(Helper.DARKER_GREY_COLOR); // Optional styling for unassigned panel
+                sectionsView.add(unassignedPanel, constraints);
                 constraints.gridy++;
             }
         }
@@ -132,10 +147,30 @@ public class MainPanel extends PluginPanel {
         title.setFont(FontManager.getRunescapeFont());
 
         JLabel addButton = new JLabel(ADD_ICON);
-        addButton.setToolTipText("Add new section");
+        addButton.setToolTipText("Add new section/note");
 
-        addButton.addMouseListener(new MouseAdapter()
-        {
+        JPopupMenu addMenu = new JPopupMenu();
+        JMenuItem addSectionItem = new JMenuItem("Add Section");
+        JMenuItem addNoteItem = new JMenuItem("Add Note");
+
+        addSectionItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                plugin.addSection();
+            }
+        });
+
+        addNoteItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                plugin.addNote();
+            }
+        });
+
+        addMenu.add(addSectionItem);
+        addMenu.add(addNoteItem);
+
+        addButton.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent mouseEvent)
             {
@@ -143,7 +178,6 @@ public class MainPanel extends PluginPanel {
                 {
                     return;
                 }
-
                 addButton.setIcon(ADD_PRESSED_ICON);
             }
 
@@ -154,8 +188,7 @@ public class MainPanel extends PluginPanel {
                 {
                     return;
                 }
-
-                plugin.addSection();
+                addMenu.show(addButton, mouseEvent.getX(), mouseEvent.getY());
                 addButton.setIcon(ADD_HOVER_ICON);
             }
 

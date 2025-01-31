@@ -181,7 +181,6 @@ public class NoteOverviewPanel extends JPanel
         selectItemButton.setForeground(Color.WHITE);
         selectItemButton.setFont(FontManager.getRunescapeSmallFont());
         // Pass "this" so the plugin can refresh this panel after selection
-        selectItemButton.addActionListener(e -> plugin.setNoteIconFromSearch(note, this));
         itemSelectionRow.add(selectItemButton, BorderLayout.CENTER);
 
         // The item icon container at the bottom
@@ -192,10 +191,10 @@ public class NoteOverviewPanel extends JPanel
         itemSelectionRow.add(itemImageContainer, BorderLayout.SOUTH);
 
         // If note has an item already set, load it
-        if (note.isItemSet(note))
-        {
-            loadItemIcon();
-        }
+//        if (note.hasIcon())
+//        {
+//            loadItemIcon();
+//        }
 
 //        Example of how to load a sprite -> we will use this for boss/skill selection
 //        JLabel testLabel = new JLabel();
@@ -223,12 +222,12 @@ public class NoteOverviewPanel extends JPanel
         itemImageContainer.removeAll();
 
         // If note doesn't actually have a valid item
-        if (!note.isItemSet(note))
-        {
-            itemImageContainer.revalidate();
-            itemImageContainer.repaint();
-            return;
-        }
+//        if (!note.hasIcon())
+//        {
+//            itemImageContainer.revalidate();
+//            itemImageContainer.repaint();
+//            return;
+//        }
 
         // Load asynchronously
         AsyncBufferedImage itemImg = itemManager.getImage(note.getItemId(), 0, false);

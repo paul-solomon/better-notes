@@ -4,27 +4,35 @@ import com.betterNotes.BetterNotesPlugin;
 import com.betterNotes.entities.BetterNotesNote;
 import com.betterNotes.entities.BetterNotesSection;
 import com.betterNotes.utility.Helper;
+import com.google.common.collect.ImmutableList;
+import net.runelite.client.game.SpriteManager;
+import net.runelite.client.hiscore.HiscoreSkill;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.components.FlatTextField;
+import net.runelite.client.util.AsyncBufferedImage;
 import net.runelite.client.util.ImageUtil;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.util.List;
 
+import static net.runelite.client.hiscore.HiscoreSkill.*;
+
 /**
  * Panel representing a single "section" with minimize/maximize functionality.
  */
-public class SectionPanel extends JPanel
-{
+public class SectionPanel extends JPanel {
     private final BetterNotesPlugin plugin;
     private final BetterNotesSection section;
-
     private static final ImageIcon MINIMIZE_ICON;
     private static final ImageIcon MINIMIZE_ICON_HOVER;
     private static final ImageIcon MAXIMIZE_ICON;
@@ -34,11 +42,15 @@ public class SectionPanel extends JPanel
     private static final ImageIcon ADD_NOTE_ICON;
     private static final ImageIcon ADD_NOTE_ICON_HOVER;
     private final JLabel minMaxLabel = new JLabel();
+    private JPanel nameActions;
+    private JLabel addNote;
+    private JLabel moreOptions;
+    private JLabel saveButton;
+    private JLabel cancelButton;
 
     private final JPanel expandedContentPanel = new JPanel();
 
-    static
-    {
+    static {
         BufferedImage downArrow = ImageUtil.loadImageResource(BetterNotesPlugin.class, "/chevron_down.png");
         MINIMIZE_ICON = new ImageIcon(downArrow);
         MINIMIZE_ICON_HOVER = new ImageIcon(ImageUtil.luminanceOffset(downArrow, -150));
@@ -56,8 +68,7 @@ public class SectionPanel extends JPanel
         ADD_NOTE_ICON_HOVER = new ImageIcon(setImageOpacity(ImageUtil.resizeImage(addNote, 16, 16), 1.0f));
     }
 
-    public SectionPanel(BetterNotesPlugin plugin, BetterNotesSection section, final MouseAdapter flatTextFieldMouseAdapter)
-    {
+    public SectionPanel(BetterNotesPlugin plugin, BetterNotesSection section, final MouseAdapter flatTextFieldMouseAdapter) {
         this.plugin = plugin;
         this.section = section;
 
@@ -69,12 +80,32 @@ public class SectionPanel extends JPanel
         nameWrapper.setBackground(Helper.DARKER_GREY_COLOR);
         nameWrapper.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0)); // No gaps or borders
 
+        JLabel iconLabel = new JLabel();
+        iconLabel.setPreferredSize(new Dimension(32, 32));
+        iconLabel.setOpaque(false); // Transparent background
+
+        if (section.hasIcon()) {
+            if (section.hasSpriteIcon()) {
+                // Placeholder for sprite icon
+                plugin.getSpriteManager().getSpriteAsync(section.getSpriteId(), 0, (sprite) ->
+                        SwingUtilities.invokeLater(() -> {
+                            final BufferedImage scaledSprite = ImageUtil.resizeImage(ImageUtil.resizeCanvas(sprite, 35, 35), 32, 32); // Scale for better fit
+                            iconLabel.setIcon(new ImageIcon(scaledSprite));
+                        }));
+            } else if (section.hasItemIcon()) {
+                AsyncBufferedImage itemImg = plugin.getItemManager().getImage(section.getItemId(), 0, false);
+                iconLabel.setIcon(new ImageIcon(itemImg));
+            }
+        }
+
         FlatTextField nameInput = createNameInput(section.getName(), flatTextFieldMouseAdapter);
         nameInput.setBackground(Helper.DARKER_GREY_COLOR);
         JPanel nameActions = createNameActions(nameInput, flatTextFieldMouseAdapter);
         setupMinMaxLabel();
 
         GridBagConstraints gc = new GridBagConstraints();
+
+        // Minimize/Maximize button
         gc.gridx = 0;
         gc.gridy = 0;
         gc.weightx = 0;
@@ -82,16 +113,29 @@ public class SectionPanel extends JPanel
         gc.insets = new Insets(0, 8, 0, 0);
         nameWrapper.add(minMaxLabel, gc);
 
+        // Icon (if applicable)
+        if (section.hasIcon()) {
+            gc = new GridBagConstraints();
+            gc.gridx = 1;
+            gc.gridy = 0;
+            gc.weightx = 0;
+            gc.anchor = GridBagConstraints.WEST;
+            gc.insets = new Insets(0, 4, 0, 4); // Spacing
+            nameWrapper.add(iconLabel, gc);
+        }
+
+        // Section title
         gc = new GridBagConstraints();
-        gc.gridx = 1;
+        gc.gridx = 2;
         gc.gridy = 0;
         gc.weightx = 1.0;
         gc.fill = GridBagConstraints.HORIZONTAL;
         gc.anchor = GridBagConstraints.CENTER;
         nameWrapper.add(nameInput, gc);
 
+        // Action buttons
         gc = new GridBagConstraints();
-        gc.gridx = 2;
+        gc.gridx = 3;
         gc.gridy = 0;
         gc.weightx = 0;
         gc.anchor = GridBagConstraints.EAST;
@@ -110,24 +154,19 @@ public class SectionPanel extends JPanel
         moreContentPanel.setLayout(new BoxLayout(moreContentPanel, BoxLayout.Y_AXIS));
         moreContentPanel.setBackground(Helper.DARKER_GREY_COLOR);
 
-        if (section.getNotes().isEmpty())
-        {
+        if (section.getNotes().isEmpty()) {
             moreContentPanel.add(createNoNotesMessage());
-        }
-        else
-        {
+        } else {
             List<BetterNotesNote> notes = section.getNotes();
             int noteCount = notes.size();
 
-            for (int i = 0; i < noteCount; i++)
-            {
+            for (int i = 0; i < noteCount; i++) {
                 BetterNotesNote note = notes.get(i);
-                SectionNotePanel notePanel = new SectionNotePanel(plugin, note, section.getId());
+                SectionNotePanel notePanel = new SectionNotePanel(plugin, note, section, null);
                 moreContentPanel.add(notePanel);
 
                 // Add a vertical strut only if this is not the last note
-                if (i < noteCount - 1)
-                {
+                if (i < noteCount - 1) {
                     moreContentPanel.add(Box.createVerticalStrut(5));
                 }
             }
@@ -135,73 +174,120 @@ public class SectionPanel extends JPanel
 
         expandedContentPanel.add(moreContentPanel, BorderLayout.CENTER);
         add(expandedContentPanel, BorderLayout.CENTER);
+
+        if (section.isNewSection()) {
+            startRenaming(nameInput);
+            section.setNewSection(false);
+        }
     }
 
-    private JPanel createNameActions(FlatTextField nameInput, MouseAdapter flatTextFieldMouseAdapter)
-    {
-        JPanel nameActions = new JPanel(new GridBagLayout())
-        {
+
+    private JPanel createNameActions(FlatTextField nameInput, MouseAdapter flatTextFieldMouseAdapter) {
+        nameActions = new JPanel(new GridBagLayout()) {
             @Override
-            public Dimension getPreferredSize()
-            {
+            public Dimension getPreferredSize() {
                 return new Dimension(super.getPreferredSize().width, 40);
             }
         };
         nameActions.setBackground(Helper.DARKER_GREY_COLOR);
 
-        JLabel moreOptions = new JLabel(MORE_OPTIONS_ICON);
+        saveButton = new JLabel("Save");
+        cancelButton = new JLabel("Cancel");
+
+        saveButton.setForeground(Color.GRAY);
+        cancelButton.setForeground(Color.RED);
+
+        moreOptions = new JLabel(MORE_OPTIONS_ICON);
         moreOptions.setToolTipText("More options");
-        moreOptions.addMouseListener(new MouseAdapter()
-        {
-            @Override
-            public void mousePressed(MouseEvent e)
-            {
-                if (SwingUtilities.isLeftMouseButton(e))
-                {
-                    System.out.println("More options clicked!");
-                }
-            }
 
-            @Override
-            public void mouseEntered(MouseEvent e)
-            {
-                moreOptions.setIcon(MORE_OPTIONS_ICON_HOVER);
-            }
-
-            @Override
-            public void mouseExited(MouseEvent e)
-            {
-                moreOptions.setIcon(MORE_OPTIONS_ICON);
-            }
-        });
-
-        JLabel addNote = new JLabel(ADD_NOTE_ICON);
+        addNote = new JLabel(ADD_NOTE_ICON);
         addNote.setToolTipText("Add new note");
-        addNote.addMouseListener(new MouseAdapter()
-        {
+        addNote.addMouseListener(new MouseAdapter() {
             @Override
-            public void mousePressed(MouseEvent e)
-            {
-                if (SwingUtilities.isLeftMouseButton(e))
-                {
-                    plugin.addNoteToSection(section.getId());
+            public void mousePressed(MouseEvent e) {
+                if (SwingUtilities.isLeftMouseButton(e)) {
+                    if (section.isUnassignedNotesSection()) {
+                        plugin.addNoteToUnassignedSection();
+                    } else {
+                        plugin.addNoteToSection(section.getId());
+                    }
+
                 }
             }
 
             @Override
-            public void mouseEntered(MouseEvent e)
-            {
+            public void mouseEntered(MouseEvent e) {
                 addNote.setIcon(ADD_NOTE_ICON_HOVER);
             }
 
             @Override
-            public void mouseExited(MouseEvent e)
-            {
+            public void mouseExited(MouseEvent e) {
                 addNote.setIcon(ADD_NOTE_ICON);
             }
         });
 
         GridBagConstraints gc = new GridBagConstraints();
+
+        moreOptions.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                if (SwingUtilities.isLeftMouseButton(e)) {
+                    JPopupMenu optionsMenu = new JPopupMenu();
+
+                    JMenuItem setRemoveIcon = new JMenuItem(section.hasIcon() ? "Change Section Icon" : "Set Section Icon");
+                    setRemoveIcon.addActionListener(new ActionListener() {
+                        @Override
+                        public void actionPerformed(ActionEvent e) {
+                                plugin.openSectionIconPickerDialog(section);
+                        }
+                    });
+
+                    JMenuItem removeIcon = new JMenuItem("Remove Section Icon");
+                    removeIcon.addActionListener(new ActionListener() {
+                        @Override
+                        public void actionPerformed(ActionEvent e) {
+                            plugin.removeSectionIcon(section, false);
+                        }
+                    });
+
+                    if (section.hasIcon()) {
+                        optionsMenu.add(removeIcon);
+                    }
+
+                    JMenuItem renameSection = new JMenuItem("Rename Section");
+                    renameSection.addActionListener(new ActionListener() {
+                        @Override
+                        public void actionPerformed(ActionEvent e) {
+                            startRenaming(nameInput);
+                        }
+                    });
+
+                    JMenuItem deleteSection = new JMenuItem("Delete Section");
+                    deleteSection.addActionListener(new ActionListener() {
+                        @Override
+                        public void actionPerformed(ActionEvent e) {
+                            plugin.deleteSection(section);
+                        }
+                    });
+
+                    optionsMenu.add(setRemoveIcon);
+                    optionsMenu.add(renameSection);
+                    optionsMenu.add(deleteSection);
+
+                    optionsMenu.show(moreOptions, e.getX(), e.getY());
+                }
+            }
+
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                moreOptions.setIcon(MORE_OPTIONS_ICON_HOVER);
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                moreOptions.setIcon(MORE_OPTIONS_ICON);
+            }
+        });
 
         // More Options button
         gc.gridx = 0;
@@ -209,7 +295,9 @@ public class SectionPanel extends JPanel
         gc.weightx = 0.0;
         gc.insets = new Insets(0, 0, 0, 4); // 4px spacing to the right
         gc.anchor = GridBagConstraints.CENTER;
-        nameActions.add(moreOptions, gc);
+        if (!section.isUnassignedNotesSection()) {
+            nameActions.add(moreOptions, gc);
+        }
 
         // Add Note button
         gc.gridx = 1;
@@ -219,11 +307,11 @@ public class SectionPanel extends JPanel
         gc.anchor = GridBagConstraints.CENTER;
         nameActions.add(addNote, gc);
 
+
         return nameActions;
     }
 
-    private JPanel createNoNotesMessage()
-    {
+    private JPanel createNoNotesMessage() {
         // Create a panel to hold the message
         JPanel noNotesPanel = new JPanel();
         noNotesPanel.setLayout(new BoxLayout(noNotesPanel, BoxLayout.Y_AXIS));
@@ -267,8 +355,7 @@ public class SectionPanel extends JPanel
         return noNotesPanel;
     }
 
-    private FlatTextField createNameInput(String initialText, MouseAdapter flatTextFieldMouseAdapter)
-    {
+    private FlatTextField createNameInput(String initialText, MouseAdapter flatTextFieldMouseAdapter) {
         FlatTextField nameInput = new FlatTextField();
         nameInput.setText(initialText);
         nameInput.setBorder(null);
@@ -281,29 +368,23 @@ public class SectionPanel extends JPanel
         return nameInput;
     }
 
-    private void setupMinMaxLabel()
-    {
+    private void setupMinMaxLabel() {
         updateMinMaxLabel();
 
-        minMaxLabel.addMouseListener(new MouseAdapter()
-        {
+        minMaxLabel.addMouseListener(new MouseAdapter() {
             @Override
-            public void mouseEntered(MouseEvent e)
-            {
+            public void mouseEntered(MouseEvent e) {
                 minMaxLabel.setIcon(section.isMaximized() ? MINIMIZE_ICON_HOVER : MAXIMIZE_ICON_HOVER);
             }
 
             @Override
-            public void mouseExited(MouseEvent e)
-            {
+            public void mouseExited(MouseEvent e) {
                 updateMinMaxLabel();
             }
 
             @Override
-            public void mousePressed(MouseEvent e)
-            {
-                if (SwingUtilities.isLeftMouseButton(e))
-                {
+            public void mousePressed(MouseEvent e) {
+                if (SwingUtilities.isLeftMouseButton(e)) {
                     section.setMaximized(!section.isMaximized());
                     plugin.getDataManager().updateConfig();
                     updateMinMaxLabel();
@@ -319,27 +400,173 @@ public class SectionPanel extends JPanel
         });
     }
 
-    private void updateMinMaxLabel()
-    {
-        if (section.isMaximized())
-        {
+    private void updateMinMaxLabel() {
+        if (section.isMaximized()) {
             minMaxLabel.setIcon(MINIMIZE_ICON);
             minMaxLabel.setToolTipText("Click to collapse");
-        }
-        else
-        {
+        } else {
             minMaxLabel.setIcon(MAXIMIZE_ICON);
             minMaxLabel.setToolTipText("Click to expand");
         }
     }
 
-    private static BufferedImage setImageOpacity(BufferedImage image, float opacity)
-    {
+    private static BufferedImage setImageOpacity(BufferedImage image, float opacity) {
         BufferedImage newImage = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2d = newImage.createGraphics();
         g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, opacity));
         g2d.drawImage(image, 0, 0, null);
         g2d.dispose();
         return newImage;
+    }
+
+    private void startRenaming(FlatTextField nameInput) {
+
+        String initialName = nameInput.getText();
+
+        nameInput.setEditable(true);
+
+        SwingUtilities.invokeLater(() -> {
+            nameInput.getTextField().selectAll();
+            nameInput.getTextField().requestFocus();
+        });
+
+        nameActions.remove(addNote);
+
+        nameActions.remove(moreOptions);
+
+        GridBagConstraints gc = new GridBagConstraints();
+
+        gc.gridx = 0;
+
+        gc.gridy = 0;
+
+        gc.insets = new Insets(0, 4, 0, 4);
+
+        gc.anchor = GridBagConstraints.CENTER;
+
+        nameActions.add(saveButton, gc);
+
+        gc.gridx++;
+
+        nameActions.add(cancelButton, gc);
+
+        nameActions.revalidate();
+
+        nameActions.repaint();
+
+
+        saveButton.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                if (SwingUtilities.isLeftMouseButton(e)) {
+
+                    String newName = nameInput.getText().trim();
+
+                    if (!newName.equals(initialName) && !newName.isEmpty()) {
+                        section.setName(newName);
+                        plugin.getDataManager().updateConfig();
+                        plugin.redrawMainPanel();
+                    }
+
+                    endRenaming(nameInput, nameActions, addNote, moreOptions, saveButton, cancelButton, initialName);
+                }
+            }
+
+
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                String newName = nameInput.getText().trim();
+
+                if (!newName.equals(initialName) && !newName.isEmpty()) {
+                    saveButton.setForeground(Color.GREEN.darker());
+                } else {
+                    saveButton.setForeground(Color.GRAY.darker());
+                }
+            }
+
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                String newName = nameInput.getText().trim();
+
+                if (!newName.equals(initialName) && !newName.isEmpty()) {
+                    saveButton.setForeground(Color.GREEN);
+                } else {
+                    saveButton.setForeground(Color.GRAY);
+                }
+            }
+        });
+
+
+        cancelButton.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+
+                if (SwingUtilities.isLeftMouseButton(e)) {
+                    nameInput.setText(initialName);
+                    endRenaming(nameInput, nameActions, addNote, moreOptions, saveButton, cancelButton, initialName);
+                }
+            }
+
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                cancelButton.setForeground(Color.RED.darker());
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                cancelButton.setForeground(Color.RED);
+            }
+        });
+
+
+        nameInput.getTextField().getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                checkSaveButtonState();
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                checkSaveButtonState();
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                checkSaveButtonState();
+            }
+
+            private void checkSaveButtonState() {
+                String currentText = nameInput.getText().trim();
+                if (currentText.equals(initialName) || currentText.isEmpty()) {
+                    saveButton.setForeground(Color.GRAY);
+                    saveButton.setToolTipText("No changes to save");
+                } else {
+                    saveButton.setForeground(Color.GREEN);
+                    saveButton.setToolTipText(null);
+                }
+            }
+        });
+    }
+
+    private void endRenaming(FlatTextField nameInput, JPanel nameActions, JLabel addNote, JLabel moreOptions, JLabel saveButton, JLabel cancelButton, String finalName) {
+        nameInput.setEditable(false);
+        nameInput.setText(finalName);
+
+        nameActions.remove(saveButton);
+        nameActions.remove(cancelButton);
+
+        GridBagConstraints gc = new GridBagConstraints();
+        gc.gridx = 0;
+        gc.gridy = 0;
+        gc.insets = new Insets(0, 0, 0, 4);
+        gc.anchor = GridBagConstraints.CENTER;
+
+        nameActions.add(moreOptions, gc);
+        gc.gridx++;
+        nameActions.add(addNote, gc);
+
+        nameActions.revalidate();
+        nameActions.repaint();
     }
 }

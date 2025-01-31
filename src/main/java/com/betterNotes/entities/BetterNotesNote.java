@@ -21,7 +21,13 @@ public class BetterNotesNote
     private int itemId;
 
     @Getter @Setter
+    private int spriteId;
+
+    @Getter @Setter
     private boolean isMaximized;
+
+    @Getter @Setter
+    private boolean isNewNote;
 
     public BetterNotesNote(final String name)
     {
@@ -29,10 +35,20 @@ public class BetterNotesNote
         this.name = name;
         this.content = "";
         this.itemId = -1;
+        this.spriteId = -1;
         this.isMaximized = true;
+        this.isNewNote = true;
     }
 
-    public boolean isItemSet(final BetterNotesNote note) {
-        return note.getItemId() != -1;
+    public boolean hasItemIcon() {
+        return this.getItemId() != -1;
+    }
+
+    public boolean hasSpriteIcon() {
+        return this.getSpriteId() != -1;
+    }
+
+    public boolean hasIcon() {
+        return this.hasSpriteIcon() || this.hasItemIcon();
     }
 }
