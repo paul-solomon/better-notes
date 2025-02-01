@@ -3,41 +3,51 @@ package com.betterNotes.ui;
 import com.betterNotes.BetterNotesPlugin;
 import com.betterNotes.entities.BetterNotesNote;
 import com.betterNotes.entities.BetterNotesSection;
-import net.runelite.client.game.SpriteManager;
+import com.betterNotes.utility.Helper;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.PluginPanel;
 import net.runelite.client.util.ImageUtil;
-import com.betterNotes.utility.Helper;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import java.awt.event.*;
 import java.awt.image.BufferedImage;
 
-public class MainPanel extends PluginPanel {
-
+public class MainPanel extends PluginPanel
+{
     private static final ImageIcon ADD_ICON;
     private static final ImageIcon ADD_HOVER_ICON;
     private static final ImageIcon ADD_PRESSED_ICON;
+
+    // -- Added icons for 'more options' --
+    private static final ImageIcon MORE_OPTIONS_ICON;
+    private static final ImageIcon MORE_OPTIONS_ICON_HOVER;
 
     private final JLabel title = new JLabel();
     private final BetterNotesPlugin plugin;
 
     private final JPanel sectionsView = new JPanel(new GridBagLayout());
 
+    private boolean isReorderMode = false;
+
     static
     {
+        // Existing add button icons
         final BufferedImage addIcon = ImageUtil.loadImageResource(BetterNotesPlugin.class, "/new.png");
         ADD_ICON = new ImageIcon(addIcon);
         ADD_HOVER_ICON = new ImageIcon(ImageUtil.alphaOffset(addIcon, -100));
         ADD_PRESSED_ICON = new ImageIcon(ImageUtil.alphaOffset(addIcon, -50));
+
+        // More-options icons from SectionNotePanel logic
+        final BufferedImage moreOptionsImg = ImageUtil.loadImageResource(BetterNotesPlugin.class, "/more_options.png");
+        // Resize to 16x16, then apply different opacities for default vs. hover
+        MORE_OPTIONS_ICON = new ImageIcon(setImageOpacity(ImageUtil.resizeImage(moreOptionsImg, 16, 16), 0.5f));
+        MORE_OPTIONS_ICON_HOVER = new ImageIcon(setImageOpacity(ImageUtil.resizeImage(moreOptionsImg, 16, 16), 1.0f));
     }
 
-    public MainPanel(BetterNotesPlugin plugin) {
+    public MainPanel(BetterNotesPlugin plugin)
+    {
         this.plugin = plugin;
 
         setLayout(new BorderLayout());
@@ -46,7 +56,8 @@ public class MainPanel extends PluginPanel {
         buildMainUI();
     }
 
-    public void rebuild() {
+    public void rebuild()
+    {
         GridBagConstraints constraints = new GridBagConstraints();
         constraints.fill = GridBagConstraints.HORIZONTAL;
         constraints.weightx = 1;
@@ -54,22 +65,24 @@ public class MainPanel extends PluginPanel {
 
         sectionsView.removeAll();
 
-        // Check if there are any sections
-        if (plugin.getSections().isEmpty() && plugin.getUnassignedNotesSection() == null) {
-            // Handle the case where there are no sections or unassigned notes
-            // You can add a placeholder panel or leave it empty
+        // If no sections and no unassigned notes, show placeholder
+        if (plugin.getSections().isEmpty() && plugin.getUnassignedNotesSection() == null)
+        {
             JLabel noSectionsLabel = new JLabel("No sections available.");
             noSectionsLabel.setForeground(Color.LIGHT_GRAY);
             noSectionsLabel.setHorizontalAlignment(SwingConstants.CENTER);
             sectionsView.add(noSectionsLabel, constraints);
             constraints.gridy++;
-        } else {
-            // Add regular sections
-            for (final BetterNotesSection section : plugin.getSections()) {
+        }
+        else
+        {
+            // Add each regular section
+            for (final BetterNotesSection section : plugin.getSections())
+            {
                 sectionsView.add(new SectionPanel(plugin, section, null), constraints);
                 constraints.gridy++;
 
-                // Add a spacer between sections
+                // Spacer
                 JPanel spacer = new JPanel();
                 spacer.setBackground(Helper.DARK_GREY_COLOR);
                 spacer.setPreferredSize(new Dimension(0, 10));
@@ -79,9 +92,10 @@ public class MainPanel extends PluginPanel {
 
             // Add unassigned notes section if present
             BetterNotesSection unassignedNotesSection = plugin.getUnassignedNotesSection();
-            if (unassignedNotesSection != null && !unassignedNotesSection.getNotes().isEmpty()) {
+            if (unassignedNotesSection != null && !unassignedNotesSection.getNotes().isEmpty())
+            {
                 SectionPanel unassignedPanel = new SectionPanel(plugin, unassignedNotesSection, null);
-                unassignedPanel.setBackground(Helper.DARKER_GREY_COLOR); // Optional styling for unassigned panel
+                unassignedPanel.setBackground(Helper.DARKER_GREY_COLOR); // Optional styling
                 sectionsView.add(unassignedPanel, constraints);
                 constraints.gridy++;
             }
@@ -93,10 +107,8 @@ public class MainPanel extends PluginPanel {
 
     public void showNoteOverview(BetterNotesNote note)
     {
-        // Clear out the main panel
         removeAll();
 
-        // Create the NoteOverviewPanel, pass a "back" callback
         NoteOverviewPanel notePanel = new NoteOverviewPanel(
                 plugin,
                 note,
@@ -105,47 +117,139 @@ public class MainPanel extends PluginPanel {
                 plugin.getSpriteManager()
         );
 
-        // Add the note panel
         add(notePanel, BorderLayout.CENTER);
 
-        // Refresh
         revalidate();
         repaint();
     }
 
+    public void showReorderMode() {
+        removeAll();
+
+        JPanel topBarPanel = buildHeaderPanel();
+        add(topBarPanel, BorderLayout.NORTH);
+
+        // -- Center panel with sections --
+        JPanel centerPanel = new JPanel(new BorderLayout());
+        centerPanel.setBackground(Helper.DARKER_GREY_COLOR);
+
+        ReoderViewPanel reorderView = new ReoderViewPanel(plugin);
+        centerPanel.add(reorderView, BorderLayout.CENTER);
+
+        add(centerPanel, BorderLayout.CENTER);
+
+        // Finally, build/rebuild the sections
+        rebuild();
+    }
+
     public void showSectionsView()
     {
-        removeAll();              // remove the note panel
+        removeAll();
         setLayout(new BorderLayout());
-        // Re-add the top bar & sections layout
-        // or just call rebuild() which does the same
 
-        // We'll replicate the structure from the constructor
-        JPanel topbarPanel = new JPanel(new BorderLayout());
-        topbarPanel.setBorder(new EmptyBorder(1, 0, 10, 0));
-
-        title.setText("Better Notes");
-        title.setForeground(Color.WHITE);
-
-        // We might re-add that "addButton" logic, or store it in a separate method
-        // But an easier approach is to just call your existing constructor logic
-        // or keep references to your existing top panel so you can re-add them.
-
-        // If you want to keep it simple, just call:
         buildMainUI();
 
         revalidate();
         repaint();
     }
 
-    public void buildMainUI() {
-        JPanel topbarPanel = new JPanel(new BorderLayout());
-        topbarPanel.setBorder(new EmptyBorder(1, 0, 10, 0));
+    public void buildMainUI()
+    {
+
+        JPanel topBarPanel = buildHeaderPanel();
+        add(topBarPanel, BorderLayout.NORTH);
+
+        // -- Center panel with sections --
+        JPanel centerPanel = new JPanel(new BorderLayout());
+        centerPanel.setBackground(Helper.DARKER_GREY_COLOR);
+
+        sectionsView.setBackground(Helper.DARKER_GREY_COLOR);
+        centerPanel.add(sectionsView, BorderLayout.CENTER);
+
+        add(centerPanel, BorderLayout.CENTER);
+
+        // Finally, build/rebuild the sections
+        rebuild();
+    }
+
+    public JPanel buildHeaderPanel() {
+        // -- Top bar --
+        JPanel topBarPanel = new JPanel(new BorderLayout());
+        topBarPanel.setBorder(new EmptyBorder(1, 0, 10, 0));
 
         title.setText("Better Notes");
         title.setForeground(Color.WHITE);
         title.setFont(FontManager.getRunescapeFont());
 
+        topBarPanel.add(title, BorderLayout.WEST);
+
+        if (!isReorderMode) {
+            JPanel mainRightIconsPanel = buildMainTopBarButtons();
+
+            topBarPanel.add(mainRightIconsPanel, BorderLayout.EAST);
+        } else {
+            JPanel reorderModeRightIconsPanel = buildReorderModeTopBarPanel();
+
+            topBarPanel.add(reorderModeRightIconsPanel, BorderLayout.EAST);
+        }
+
+
+        return topBarPanel;
+    }
+
+    public JPanel buildMainTopBarButtons () {
+        // 1) The more-options button
+        JLabel moreOptionsButton = new JLabel(MORE_OPTIONS_ICON);
+        moreOptionsButton.setToolTipText("More options");
+
+        // Popup menu for moreOptions
+        JPopupMenu moreOptionsMenu = new JPopupMenu();
+        JMenuItem reorderItem = new JMenuItem("Reorder sections and notes");
+        reorderItem.addActionListener(e -> {
+            isReorderMode = true;
+            showReorderMode();
+        });
+        moreOptionsMenu.add(reorderItem);
+
+        moreOptionsButton.addMouseListener(new MouseAdapter()
+        {
+            @Override
+            public void mousePressed(MouseEvent e)
+            {
+                if (Helper.checkClick(e))
+                {
+                    return;
+                }
+                // We could show a "pressed" look if you like
+                // or just set to hover icon again
+                moreOptionsButton.setIcon(MORE_OPTIONS_ICON_HOVER);
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent e)
+            {
+                if (Helper.checkClick(e))
+                {
+                    return;
+                }
+                // Show menu on release
+                moreOptionsMenu.show(moreOptionsButton, e.getX(), e.getY());
+            }
+
+            @Override
+            public void mouseEntered(MouseEvent e)
+            {
+                moreOptionsButton.setIcon(MORE_OPTIONS_ICON_HOVER);
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e)
+            {
+                moreOptionsButton.setIcon(MORE_OPTIONS_ICON);
+            }
+        });
+
+        // 2) The add button
         JLabel addButton = new JLabel(ADD_ICON);
         addButton.setToolTipText("Add new section/note");
 
@@ -153,24 +257,14 @@ public class MainPanel extends PluginPanel {
         JMenuItem addSectionItem = new JMenuItem("Add Section");
         JMenuItem addNoteItem = new JMenuItem("Add Note");
 
-        addSectionItem.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                plugin.addSection();
-            }
-        });
-
-        addNoteItem.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                plugin.addNote();
-            }
-        });
+        addSectionItem.addActionListener(e -> plugin.addSection());
+        addNoteItem.addActionListener(e -> plugin.addNote());
 
         addMenu.add(addSectionItem);
         addMenu.add(addNoteItem);
 
-        addButton.addMouseListener(new MouseAdapter() {
+        addButton.addMouseListener(new MouseAdapter()
+        {
             @Override
             public void mousePressed(MouseEvent mouseEvent)
             {
@@ -205,20 +299,59 @@ public class MainPanel extends PluginPanel {
             }
         });
 
-        topbarPanel.add(title, BorderLayout.WEST);
-        topbarPanel.add(addButton, BorderLayout.EAST);
+        // Put the two buttons side by side on the top bar (right side)
+        JPanel rightIconsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+        rightIconsPanel.setOpaque(false);
+        rightIconsPanel.add(moreOptionsButton);
+        rightIconsPanel.add(addButton);
 
-        add(topbarPanel, BorderLayout.NORTH);
+        return rightIconsPanel;
+    }
 
-        JPanel centerPanel = new JPanel(new BorderLayout());
-        centerPanel.setBackground(Helper.DARKER_GREY_COLOR);
+    public JPanel buildReorderModeTopBarPanel () {
 
-        sectionsView.setBackground(Helper.DARKER_GREY_COLOR);
+        JLabel finishButton = new JLabel("Finish");
+        finishButton.setForeground(Color.WHITE);
 
-        centerPanel.add(sectionsView, BorderLayout.CENTER);
+        finishButton.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                if (SwingUtilities.isLeftMouseButton(e)) {
+                    isReorderMode = false;
+                    showSectionsView();
+                }
+            }
 
-        add(centerPanel, BorderLayout.CENTER);
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                finishButton.setForeground(Color.WHITE.darker());
+            }
 
-        rebuild();
+            @Override
+            public void mouseExited(MouseEvent e) {
+               finishButton.setForeground(Color.WHITE);
+            }
+        });
+
+        // Put the two buttons side by side on the top bar (right side)
+        JPanel rightIconsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+        rightIconsPanel.setOpaque(false);
+        rightIconsPanel.add(finishButton);
+
+        return rightIconsPanel;
+    }
+
+    /**
+     * Helper function to set opacity of an image.
+     * Re-implements logic from SectionNotePanel for consistent icons.
+     */
+    private static BufferedImage setImageOpacity(BufferedImage image, float opacity)
+    {
+        BufferedImage newImage = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2d = newImage.createGraphics();
+        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, opacity));
+        g2d.drawImage(image, 0, 0, null);
+        g2d.dispose();
+        return newImage;
     }
 }

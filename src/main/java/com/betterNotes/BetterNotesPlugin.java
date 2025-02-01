@@ -30,6 +30,7 @@ import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.ui.components.colorpicker.ColorPickerManager;
 import net.runelite.client.ui.components.colorpicker.RuneliteColorPicker;
+import net.runelite.client.util.AsyncBufferedImage;
 import net.runelite.client.util.ImageUtil;
 
 import java.awt.*;
@@ -37,6 +38,7 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -104,6 +106,9 @@ public class BetterNotesPlugin extends Plugin
 	{
 		return panel;
 	}
+
+	private final Map<Integer, BufferedImage> spriteCache = new HashMap<>();
+	private final Map<Integer, BufferedImage> itemCache = new HashMap<>();
 
 	@Override
 	protected void startUp() throws Exception
@@ -440,4 +445,68 @@ public class BetterNotesPlugin extends Plugin
 	{
 		return configManager.getConfig(BetterNotesConfig.class);
 	}
+
+	public void getSpriteAsync(int spriteId, Consumer<BufferedImage> callback)
+	{
+		if (spriteCache.containsKey(spriteId))
+		{
+			callback.accept(spriteCache.get(spriteId));
+			return;
+		}
+
+		spriteManager.getSpriteAsync(spriteId, 0, (img) ->
+		{
+			if (img != null)
+			{
+				BufferedImage scaled = ImageUtil.resizeImage(ImageUtil.resizeCanvas(img, 35, 35), 32, 32);
+				spriteCache.put(spriteId, scaled);
+				callback.accept(scaled);
+			}
+			else
+			{
+				callback.accept(null);
+			}
+		});
+	}
+
+	public void getItemAsync(int itemId, Consumer<BufferedImage> callback)
+	{
+		if (itemCache.containsKey(itemId))
+		{
+			callback.accept(itemCache.get(itemId));
+			return;
+		}
+
+		AsyncBufferedImage asyncImg = itemManager.getImage(itemId, 0, false);
+		asyncImg.onLoaded(() ->
+		{
+			itemCache.put(itemId, asyncImg);
+			callback.accept(asyncImg);
+		});
+	}
+
+	public BufferedImage getSprite(int spriteId)
+	{
+		// Check cache first
+		if (spriteCache.containsKey(spriteId))
+		{
+			return spriteCache.get(spriteId);
+		}
+
+		// Return null immediately if not cached (since this is synchronous)
+		return null;
+	}
+
+	public BufferedImage getItem(int itemId)
+	{
+		// Check cache first
+		if (itemCache.containsKey(itemId))
+		{
+			return itemCache.get(itemId);
+		}
+
+		// Return null immediately if not cached (since this is synchronous)
+		return null;
+	}
+
 }

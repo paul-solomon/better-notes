@@ -86,15 +86,31 @@ public class SectionPanel extends JPanel {
 
         if (section.hasIcon()) {
             if (section.hasSpriteIcon()) {
-                // Placeholder for sprite icon
-                plugin.getSpriteManager().getSpriteAsync(section.getSpriteId(), 0, (sprite) ->
-                        SwingUtilities.invokeLater(() -> {
-                            final BufferedImage scaledSprite = ImageUtil.resizeImage(ImageUtil.resizeCanvas(sprite, 35, 35), 32, 32); // Scale for better fit
-                            iconLabel.setIcon(new ImageIcon(scaledSprite));
-                        }));
+                plugin.getSpriteAsync(section.getSpriteId(), (spriteImage) ->
+                {
+                    if (spriteImage != null)
+                    {
+                        SwingUtilities.invokeLater(() ->
+                        {
+                            iconLabel.setIcon(new ImageIcon(spriteImage));
+                            iconLabel.revalidate();
+                            iconLabel.repaint();
+                        });
+                    }
+                });
             } else if (section.hasItemIcon()) {
-                AsyncBufferedImage itemImg = plugin.getItemManager().getImage(section.getItemId(), 0, false);
-                iconLabel.setIcon(new ImageIcon(itemImg));
+                plugin.getItemAsync(section.getItemId(), (itemImg) ->
+                {
+                    if (itemImg != null)
+                    {
+                        SwingUtilities.invokeLater(() ->
+                        {
+                            iconLabel.setIcon(new ImageIcon(itemImg));
+                            iconLabel.revalidate();
+                            iconLabel.repaint();
+                        });
+                    }
+                });
             }
         }
 
@@ -568,5 +584,6 @@ public class SectionPanel extends JPanel {
 
         nameActions.revalidate();
         nameActions.repaint();
+        plugin.getDataManager().updateConfig();
     }
 }
