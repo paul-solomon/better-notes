@@ -85,15 +85,31 @@ public class SectionNotePanel extends JPanel {
 
         if (note.hasIcon()) {
             if (note.hasSpriteIcon()) {
-                // Placeholder for sprite icon
-                plugin.getSpriteManager().getSpriteAsync(note.getSpriteId(), 0, (sprite) ->
-                        SwingUtilities.invokeLater(() -> {
-                            final BufferedImage scaledSprite = ImageUtil.resizeImage(ImageUtil.resizeCanvas(sprite, 35, 35), 32, 32); // Scale for better fit
-                            iconLabel.setIcon(new ImageIcon(scaledSprite));
-                        }));
+                plugin.getSpriteAsync(note.getSpriteId(), (spriteImage) ->
+                {
+                    if (spriteImage != null)
+                    {
+                        SwingUtilities.invokeLater(() ->
+                        {
+                            iconLabel.setIcon(new ImageIcon(spriteImage));
+                            iconLabel.revalidate();
+                            iconLabel.repaint();
+                        });
+                    }
+                });
             } else if (note.hasItemIcon()) {
-                AsyncBufferedImage itemImg = plugin.getItemManager().getImage(note.getItemId(), 0, false);
-                iconLabel.setIcon(new ImageIcon(itemImg));
+                plugin.getItemAsync(note.getItemId(), (itemImg) ->
+                {
+                    if (itemImg != null)
+                    {
+                        SwingUtilities.invokeLater(() ->
+                        {
+                            iconLabel.setIcon(new ImageIcon(itemImg));
+                            iconLabel.revalidate();
+                            iconLabel.repaint();
+                        });
+                    }
+                });
             }
         }
 
