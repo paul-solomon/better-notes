@@ -29,7 +29,7 @@ public class MainPanel extends PluginPanel
 
     private final JPanel sectionsView = new JPanel(new GridBagLayout());
 
-    private boolean isReorderMode = false;
+    public boolean isReorderMode = false;
 
     static
     {
@@ -123,7 +123,7 @@ public class MainPanel extends PluginPanel
         repaint();
     }
 
-    public void showReorderMode() {
+    public void showReorderSectionsMode() {
         removeAll();
 
         JPanel topBarPanel = buildHeaderPanel();
@@ -133,7 +133,7 @@ public class MainPanel extends PluginPanel
         JPanel centerPanel = new JPanel(new BorderLayout());
         centerPanel.setBackground(Helper.DARKER_GREY_COLOR);
 
-        ReoderViewPanel reorderView = new ReoderViewPanel(plugin);
+        ReorderViewPanel reorderView = new ReorderViewPanel(plugin);
         centerPanel.add(reorderView, BorderLayout.CENTER);
 
         add(centerPanel, BorderLayout.CENTER);
@@ -204,13 +204,19 @@ public class MainPanel extends PluginPanel
 
         // Popup menu for moreOptions
         JPopupMenu moreOptionsMenu = new JPopupMenu();
-        JMenuItem reorderItem = new JMenuItem("Reorder sections and notes");
-        reorderItem.addActionListener(e -> {
+        JMenuItem reorderSectionsItem = new JMenuItem("Reorder sections");
+        reorderSectionsItem.addActionListener(e -> {
             isReorderMode = true;
-            showReorderMode();
+            showReorderSectionsMode();
         });
-        moreOptionsMenu.add(reorderItem);
+        moreOptionsMenu.add(reorderSectionsItem);
 
+        JMenuItem reorderAndMoveNotesItem = new JMenuItem("Reorder and move notes");
+        reorderAndMoveNotesItem.addActionListener(e -> {
+            isReorderMode = true;
+            showSectionsView();
+        });
+        moreOptionsMenu.add(reorderAndMoveNotesItem);
         moreOptionsButton.addMouseListener(new MouseAdapter()
         {
             @Override

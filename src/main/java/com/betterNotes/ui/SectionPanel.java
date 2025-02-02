@@ -166,29 +166,14 @@ public class SectionPanel extends JPanel {
         expandedContentPanel.setBorder(new EmptyBorder(5, 5, 5, 5)); // Uniform padding on all sides
         expandedContentPanel.setVisible(section.isMaximized());
 
-        JPanel moreContentPanel = new JPanel();
-        moreContentPanel.setLayout(new BoxLayout(moreContentPanel, BoxLayout.Y_AXIS));
-        moreContentPanel.setBackground(Helper.DARKER_GREY_COLOR);
-
-        if (section.getNotes().isEmpty()) {
-            moreContentPanel.add(createNoNotesMessage());
+        if (plugin.getPanel().isReorderMode) {
+            SectionNotesReorderableList reorderableNotesList = new SectionNotesReorderableList(plugin, section);
+            expandedContentPanel.add(reorderableNotesList, BorderLayout.CENTER);
         } else {
-            List<BetterNotesNote> notes = section.getNotes();
-            int noteCount = notes.size();
-
-            for (int i = 0; i < noteCount; i++) {
-                BetterNotesNote note = notes.get(i);
-                SectionNotePanel notePanel = new SectionNotePanel(plugin, note, section, null);
-                moreContentPanel.add(notePanel);
-
-                // Add a vertical strut only if this is not the last note
-                if (i < noteCount - 1) {
-                    moreContentPanel.add(Box.createVerticalStrut(5));
-                }
-            }
+            SectionNotesDefaultList notesList = new SectionNotesDefaultList(plugin, section);
+            expandedContentPanel.add(notesList, BorderLayout.CENTER);
         }
 
-        expandedContentPanel.add(moreContentPanel, BorderLayout.CENTER);
         add(expandedContentPanel, BorderLayout.CENTER);
 
         if (section.isNewSection()) {
@@ -311,7 +296,7 @@ public class SectionPanel extends JPanel {
         gc.weightx = 0.0;
         gc.insets = new Insets(0, 0, 0, 4); // 4px spacing to the right
         gc.anchor = GridBagConstraints.CENTER;
-        if (!section.isUnassignedNotesSection()) {
+        if (!section.isUnassignedNotesSection() && !plugin.getPanel().isReorderMode) {
             nameActions.add(moreOptions, gc);
         }
 
@@ -321,8 +306,9 @@ public class SectionPanel extends JPanel {
         gc.weightx = 0.0;
         gc.insets = new Insets(0, 4, 0, 0); // 4px spacing to the left
         gc.anchor = GridBagConstraints.CENTER;
-        nameActions.add(addNote, gc);
-
+        if (!plugin.getPanel().isReorderMode) {
+            nameActions.add(addNote, gc);
+        }
 
         return nameActions;
     }

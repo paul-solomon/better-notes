@@ -15,13 +15,13 @@ import java.util.List;
  * each rendered as a simple JPanel with a title (section name).
  * Uses remove-then-insert + drop-index adjustment to avoid duplication or misplaced items.
  */
-public class ReoderViewPanel extends JPanel
+public class ReorderViewPanel extends JPanel
 {
     private JList<BetterNotesSection> reorderableList;
     private DefaultListModel<BetterNotesSection> listModel;
     private BetterNotesPlugin plugin;
 
-    public ReoderViewPanel(BetterNotesPlugin plugin)
+    public ReorderViewPanel(BetterNotesPlugin plugin)
     {
         this.plugin = plugin;
         setLayout(new BorderLayout());
