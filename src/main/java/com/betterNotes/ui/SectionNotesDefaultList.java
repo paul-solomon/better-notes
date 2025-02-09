@@ -20,7 +20,7 @@ public class SectionNotesDefaultList extends JPanel {
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
         setBackground(Helper.DARKER_GREY_COLOR);
 
-        if (section.getNotes().isEmpty()) {
+        if (section.getNotes().isEmpty() && !plugin.getPanel().isNoteReorder) {
             add(createNoNotesMessage());
         } else {
             List<BetterNotesNote> notes = section.getNotes();

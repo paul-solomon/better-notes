@@ -2,6 +2,7 @@ package com.betterNotes.ui;
 
 import com.betterNotes.BetterNotesPlugin;
 import com.betterNotes.entities.BetterNotesSection;
+import com.betterNotes.utility.Helper;
 
 import javax.swing.*;
 import java.awt.*;
@@ -12,38 +13,71 @@ import java.util.List;
 
 /**
  * A JPanel that displays a reorderable JList of BetterNotesSection objects,
- * each rendered as a simple JPanel with a title (section name).
- * Uses remove-then-insert + drop-index adjustment to avoid duplication or misplaced items.
+ * each rendered as a SectionPanel.
  */
-public class ReorderViewPanel extends JPanel
+public class ReorderableSectionListPanel extends JPanel
 {
     private JList<BetterNotesSection> reorderableList;
     private DefaultListModel<BetterNotesSection> listModel;
     private BetterNotesPlugin plugin;
 
-    public ReorderViewPanel(BetterNotesPlugin plugin)
+    public ReorderableSectionListPanel(BetterNotesPlugin plugin)
     {
         this.plugin = plugin;
         setLayout(new BorderLayout());
-        setBackground(Color.DARK_GRAY);
+        setBackground(Helper.DARKER_GREY_COLOR);
 
         // Load sections from the plugin
         listModel = new DefaultListModel<>();
         listModel.addAll(plugin.getSections());
 
-        reorderableList = new JList<>(listModel);
+        reorderableList = new JList<>(listModel)
+        {
+            @Override
+            public Dimension getPreferredScrollableViewportSize() {
+                return super.getPreferredSize();
+            }
+        };
         reorderableList.setDragEnabled(true);
         reorderableList.setDropMode(DropMode.INSERT);
         reorderableList.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
         reorderableList.setTransferHandler(new ReorderTransferHandler());
 
-        // Custom cell renderer
-        reorderableList.setCellRenderer((list, value, index, isSelected, cellHasFocus) ->
-                new ReorderableSectionPanel(plugin, value)
-        );
+        // Custom renderer that respects preferred size
+        reorderableList.setCellRenderer(new ListCellRenderer<BetterNotesSection>() {
+            @Override
+            public Component getListCellRendererComponent(JList<? extends BetterNotesSection> list, BetterNotesSection value, int index, boolean isSelected, boolean cellHasFocus) {
+                JPanel wrapper = new JPanel(new BorderLayout());
+                wrapper.setBackground(Helper.DARKER_GREY_COLOR);
+
+                SectionPanel sectionPanel = new SectionPanel(plugin, value, null);
+                sectionPanel.setBorder(BorderFactory.createEmptyBorder(5, 0, 5, 0));
+
+                // Ensure the list does not stretch the panel vertically
+                sectionPanel.setMaximumSize(sectionPanel.getPreferredSize());
+
+                wrapper.add(sectionPanel, BorderLayout.CENTER);
+
+                // Spacer for consistency with MainPanel
+                JPanel spacer = new JPanel();
+                spacer.setPreferredSize(new Dimension(0, 10));
+                spacer.setBackground(Helper.DARKER_GREY_COLOR);
+
+                wrapper.add(spacer, BorderLayout.SOUTH);
+                return wrapper;
+            }
+        });
+
+        reorderableList.setFixedCellHeight(-1);  // Dynamic height
+        reorderableList.setBackground(Helper.DARKER_GREY_COLOR);
+        reorderableList.setOpaque(true);
 
         JScrollPane scrollPane = new JScrollPane(reorderableList);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
         add(scrollPane, BorderLayout.CENTER);
+
+        JLabel debugLabel = new JLabel("debug");
+        add(debugLabel, BorderLayout.SOUTH);
     }
 
     /**
@@ -57,11 +91,8 @@ public class ReorderViewPanel extends JPanel
             newOrder.add(listModel.getElementAt(i));
         }
 
-        // Update the plugin's section list
         plugin.getSections().clear();
         plugin.getSections().addAll(newOrder);
-
-        // Persist changes
         plugin.getDataManager().updateConfig();
         System.out.println("Order saved!");
     }
@@ -137,7 +168,7 @@ public class ReorderViewPanel extends JPanel
                         sourceModel.remove(draggedIndices[i]);
                 }
 
-                saveOrder();  // ✅ Save changes after reorder
+                saveOrder();
                 return true;
             }
             catch (UnsupportedFlavorException | IOException e)

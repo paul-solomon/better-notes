@@ -21,8 +21,9 @@ public class MainPanel extends PluginPanel
     private static final ImageIcon ADD_PRESSED_ICON;
 
     // -- Added icons for 'more options' --
-    private static final ImageIcon MORE_OPTIONS_ICON;
-    private static final ImageIcon MORE_OPTIONS_ICON_HOVER;
+    private static final ImageIcon REORDER_MODE_ICON;
+    private static final ImageIcon REORDER_MODE_ICON_HOVER;
+    private static final ImageIcon REORDER_MODE_ICON_ACTIVE;
 
     private final JLabel title = new JLabel();
     private final BetterNotesPlugin plugin;
@@ -30,6 +31,8 @@ public class MainPanel extends PluginPanel
     private final JPanel sectionsView = new JPanel(new GridBagLayout());
 
     public boolean isReorderMode = false;
+    public boolean isSectionReorder = false;
+    public boolean isNoteReorder = false;
 
     static
     {
@@ -40,11 +43,12 @@ public class MainPanel extends PluginPanel
         ADD_PRESSED_ICON = new ImageIcon(ImageUtil.alphaOffset(addIcon, -50));
 
         // More-options icons from SectionNotePanel logic
-        final BufferedImage moreOptionsImg = ImageUtil.loadImageResource(BetterNotesPlugin.class, "/more_options.png");
+        final BufferedImage reorderModeImg = ImageUtil.loadImageResource(BetterNotesPlugin.class, "/drag.png");
         // Resize to 16x16, then apply different opacities for default vs. hover
-        MORE_OPTIONS_ICON = new ImageIcon(setImageOpacity(ImageUtil.resizeImage(moreOptionsImg, 16, 16), 0.5f));
-        MORE_OPTIONS_ICON_HOVER = new ImageIcon(setImageOpacity(ImageUtil.resizeImage(moreOptionsImg, 16, 16), 1.0f));
-    }
+        REORDER_MODE_ICON = new ImageIcon(setImageOpacity(ImageUtil.resizeImage(reorderModeImg, 16, 16), 0.5f));
+        REORDER_MODE_ICON_HOVER = new ImageIcon(setImageOpacity(ImageUtil.resizeImage(reorderModeImg, 16, 16), 1.0f));
+        REORDER_MODE_ICON_ACTIVE = new ImageIcon(setImageOpacity(ImageUtil.resizeImage(reorderModeImg, 16, 16), 1.0f));
+   }
 
     public MainPanel(BetterNotesPlugin plugin)
     {
@@ -79,7 +83,11 @@ public class MainPanel extends PluginPanel
             // Add each regular section
             for (final BetterNotesSection section : plugin.getSections())
             {
-                sectionsView.add(new SectionPanel(plugin, section, null), constraints);
+                if (isNoteReorder) {
+                    sectionsView.add(new ReorderableSectionPanel(plugin, section), constraints);
+                } else {
+                    sectionsView.add(new SectionPanel(plugin, section, null), constraints);
+                }
                 constraints.gridy++;
 
                 // Spacer
@@ -123,24 +131,106 @@ public class MainPanel extends PluginPanel
         repaint();
     }
 
-    public void showReorderSectionsMode() {
+    public void enterReorderMode() {
         removeAll();
 
         JPanel topBarPanel = buildHeaderPanel();
         add(topBarPanel, BorderLayout.NORTH);
 
+        // -- Mode Switch Panel --
+        JPanel modeSwitchPanel = new JPanel();
+        modeSwitchPanel.setLayout(new BoxLayout(modeSwitchPanel, BoxLayout.Y_AXIS));
+        modeSwitchPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
+
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.setLayout(new GridLayout(1, 2, 10, 0)); // Ensures both buttons are visible side by side
+
+        JButton sectionReorderButton = new JButton("<html><center>SECTION<br>REORDER</center></html>");
+        JButton noteReorderButton = new JButton("<html><center>NOTE<br>REORDER</center></html>");
+
+        // Apply active/inactive styles
+        updateButtonStyles(sectionReorderButton, noteReorderButton);
+
+        sectionReorderButton.addActionListener(e -> {
+            isSectionReorder = true;
+            isNoteReorder = false;
+            updateButtonStyles(sectionReorderButton, noteReorderButton);
+            enterReorderMode(); // Refresh the view
+        });
+
+        noteReorderButton.addActionListener(e -> {
+            isSectionReorder = false;
+            isNoteReorder = true;
+            updateButtonStyles(sectionReorderButton, noteReorderButton);
+            enterReorderMode(); // Refresh the view
+        });
+
+        buttonPanel.add(sectionReorderButton);
+        buttonPanel.add(noteReorderButton);
+        modeSwitchPanel.add(buttonPanel);
+
+        JTextArea modeDescription = new JTextArea();
+        modeDescription.setForeground(new Color(255, 255, 255, 128));
+        modeDescription.setLineWrap(true);
+        modeDescription.setWrapStyleWord(true);
+        modeDescription.setEditable(false);
+        modeDescription.setFocusable(false);
+        modeDescription.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+
+        if (isSectionReorder) {
+            modeDescription.setText("You are now in reorder mode. \nDrag and drop sections to reorder them. \nChanges are saved automatically.");
+        } else if (isNoteReorder) {
+            modeDescription.setText("You are now in reorder mode. \nDrag and drop notes within a section to reorder them. Drag notes between sections to move them. \nChanges are saved automatically.");
+        }
+
+        modeSwitchPanel.add(modeDescription);
+        add(modeSwitchPanel, BorderLayout.CENTER);
+
         // -- Center panel with sections --
         JPanel centerPanel = new JPanel(new BorderLayout());
         centerPanel.setBackground(Helper.DARKER_GREY_COLOR);
 
-        ReorderViewPanel reorderView = new ReorderViewPanel(plugin);
-        centerPanel.add(reorderView, BorderLayout.CENTER);
+        if (isSectionReorder) {
+            ReorderableSectionListPanel reorderView = new ReorderableSectionListPanel(plugin);
+            centerPanel.add(reorderView, BorderLayout.CENTER);
+        } else {
+            sectionsView.setBackground(Helper.DARKER_GREY_COLOR);
+            centerPanel.add(sectionsView, BorderLayout.CENTER);
+        }
 
-        add(centerPanel, BorderLayout.CENTER);
+        add(centerPanel, BorderLayout.SOUTH);
 
         // Finally, build/rebuild the sections
         rebuild();
     }
+
+    private void updateButtonStyles(JButton sectionButton, JButton noteButton) {
+        sectionButton.setFont(FontManager.getRunescapeBoldFont());
+        noteButton.setFont(FontManager.getRunescapeBoldFont());
+        sectionButton.setBackground(Helper.DARKER_GREY_COLOR);
+        noteButton.setBackground(Helper.DARKER_GREY_COLOR);
+        sectionButton.setForeground(Color.WHITE);
+        noteButton.setForeground(Color.WHITE);
+        if (isSectionReorder) {
+            sectionButton.setBackground(Helper.DARKER_GREY_COLOR);
+            noteButton.setBackground(Helper.DARK_GREY_COLOR);
+            sectionButton.setForeground(Color.WHITE);
+            noteButton.setForeground(Color.WHITE.darker());
+        } else if (isNoteReorder) {
+            sectionButton.setBackground(Helper.DARK_GREY_COLOR);
+            noteButton.setBackground(Helper.DARKER_GREY_COLOR);
+            sectionButton.setForeground(Color.WHITE.darker());
+            noteButton.setForeground(Color.WHITE);
+        }
+    }
+
+    public void exitReorderMode() {
+        isReorderMode = false;
+        isSectionReorder = false;
+        isNoteReorder = false;
+        showSectionsView();
+    }
+
 
     public void showSectionsView()
     {
@@ -183,75 +273,47 @@ public class MainPanel extends PluginPanel
 
         topBarPanel.add(title, BorderLayout.WEST);
 
-        if (!isReorderMode) {
-            JPanel mainRightIconsPanel = buildMainTopBarButtons();
-
-            topBarPanel.add(mainRightIconsPanel, BorderLayout.EAST);
-        } else {
-            JPanel reorderModeRightIconsPanel = buildReorderModeTopBarPanel();
-
-            topBarPanel.add(reorderModeRightIconsPanel, BorderLayout.EAST);
-        }
-
+        JPanel mainRightIconsPanel = buildMainTopBarButtons();
+        topBarPanel.add(mainRightIconsPanel, BorderLayout.EAST);
 
         return topBarPanel;
     }
 
     public JPanel buildMainTopBarButtons () {
-        // 1) The more-options button
-        JLabel moreOptionsButton = new JLabel(MORE_OPTIONS_ICON);
-        moreOptionsButton.setToolTipText("More options");
+        JLabel toggleReorderModeButton = new JLabel(REORDER_MODE_ICON);
+        if (isReorderMode) {
+            toggleReorderModeButton.setToolTipText("Exit reorder mode");
+        } else {
+            toggleReorderModeButton.setToolTipText("Enter reorder mode");
+        }
 
-        // Popup menu for moreOptions
-        JPopupMenu moreOptionsMenu = new JPopupMenu();
-        JMenuItem reorderSectionsItem = new JMenuItem("Reorder sections");
-        reorderSectionsItem.addActionListener(e -> {
-            isReorderMode = true;
-            showReorderSectionsMode();
-        });
-        moreOptionsMenu.add(reorderSectionsItem);
-
-        JMenuItem reorderAndMoveNotesItem = new JMenuItem("Reorder and move notes");
-        reorderAndMoveNotesItem.addActionListener(e -> {
-            isReorderMode = true;
-            showSectionsView();
-        });
-        moreOptionsMenu.add(reorderAndMoveNotesItem);
-        moreOptionsButton.addMouseListener(new MouseAdapter()
+        toggleReorderModeButton.addMouseListener(new MouseAdapter()
         {
             @Override
-            public void mousePressed(MouseEvent e)
+            public void mousePressed(MouseEvent mouseEvent)
             {
-                if (Helper.checkClick(e))
+                if (Helper.checkClick(mouseEvent))
                 {
                     return;
                 }
-                // We could show a "pressed" look if you like
-                // or just set to hover icon again
-                moreOptionsButton.setIcon(MORE_OPTIONS_ICON_HOVER);
-            }
-
-            @Override
-            public void mouseReleased(MouseEvent e)
-            {
-                if (Helper.checkClick(e))
-                {
-                    return;
+                if (isReorderMode) {
+                    exitReorderMode();
+                } else {
+                    isReorderMode = true;
+                    isSectionReorder = true;
+                    enterReorderMode();
                 }
-                // Show menu on release
-                moreOptionsMenu.show(moreOptionsButton, e.getX(), e.getY());
+            }
+            @Override
+            public void mouseEntered(MouseEvent mouseEvent)
+            {
+                toggleReorderModeButton.setIcon(REORDER_MODE_ICON_HOVER);
             }
 
             @Override
-            public void mouseEntered(MouseEvent e)
+            public void mouseExited(MouseEvent mouseEvent)
             {
-                moreOptionsButton.setIcon(MORE_OPTIONS_ICON_HOVER);
-            }
-
-            @Override
-            public void mouseExited(MouseEvent e)
-            {
-                moreOptionsButton.setIcon(MORE_OPTIONS_ICON);
+                toggleReorderModeButton.setIcon(REORDER_MODE_ICON);
             }
         });
 
@@ -308,41 +370,8 @@ public class MainPanel extends PluginPanel
         // Put the two buttons side by side on the top bar (right side)
         JPanel rightIconsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
         rightIconsPanel.setOpaque(false);
-        rightIconsPanel.add(moreOptionsButton);
+        rightIconsPanel.add(toggleReorderModeButton);
         rightIconsPanel.add(addButton);
-
-        return rightIconsPanel;
-    }
-
-    public JPanel buildReorderModeTopBarPanel () {
-
-        JLabel finishButton = new JLabel("Finish");
-        finishButton.setForeground(Color.WHITE);
-
-        finishButton.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mousePressed(MouseEvent e) {
-                if (SwingUtilities.isLeftMouseButton(e)) {
-                    isReorderMode = false;
-                    showSectionsView();
-                }
-            }
-
-            @Override
-            public void mouseEntered(MouseEvent e) {
-                finishButton.setForeground(Color.WHITE.darker());
-            }
-
-            @Override
-            public void mouseExited(MouseEvent e) {
-               finishButton.setForeground(Color.WHITE);
-            }
-        });
-
-        // Put the two buttons side by side on the top bar (right side)
-        JPanel rightIconsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
-        rightIconsPanel.setOpaque(false);
-        rightIconsPanel.add(finishButton);
 
         return rightIconsPanel;
     }

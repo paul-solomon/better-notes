@@ -5,6 +5,7 @@ import com.betterNotes.entities.BetterNotesNote;
 import com.betterNotes.entities.BetterNotesSection;
 import com.betterNotes.utility.Helper;
 import com.google.common.collect.ImmutableList;
+import lombok.Getter;
 import net.runelite.client.game.SpriteManager;
 import net.runelite.client.hiscore.HiscoreSkill;
 import net.runelite.client.ui.ColorScheme;
@@ -32,7 +33,8 @@ import static net.runelite.client.hiscore.HiscoreSkill.*;
  */
 public class SectionPanel extends JPanel {
     private final BetterNotesPlugin plugin;
-    private final BetterNotesSection section;
+    @Getter
+    public final BetterNotesSection section;
     private static final ImageIcon MINIMIZE_ICON;
     private static final ImageIcon MINIMIZE_ICON_HOVER;
     private static final ImageIcon MAXIMIZE_ICON;
@@ -164,9 +166,14 @@ public class SectionPanel extends JPanel {
         expandedContentPanel.setBackground(Helper.DARKER_GREY_COLOR);
         expandedContentPanel.setLayout(new BorderLayout());
         expandedContentPanel.setBorder(new EmptyBorder(5, 5, 5, 5)); // Uniform padding on all sides
-        expandedContentPanel.setVisible(section.isMaximized());
+        if (plugin.getPanel().isNoteReorder) {
+            expandedContentPanel.setVisible(true);
+        } else {
+            expandedContentPanel.setVisible(section.isMaximized());
+        }
 
-        if (plugin.getPanel().isReorderMode) {
+
+        if (plugin.getPanel().isReorderMode && plugin.getPanel().isNoteReorder) {
             SectionNotesReorderableList reorderableNotesList = new SectionNotesReorderableList(plugin, section);
             expandedContentPanel.add(reorderableNotesList, BorderLayout.CENTER);
         } else {
@@ -373,6 +380,10 @@ public class SectionPanel extends JPanel {
     private void setupMinMaxLabel() {
         updateMinMaxLabel();
 
+        if (plugin.getPanel().isNoteReorder) {
+            minMaxLabel.setEnabled(false);
+        }
+
         minMaxLabel.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseEntered(MouseEvent e) {
@@ -392,7 +403,11 @@ public class SectionPanel extends JPanel {
                     updateMinMaxLabel();
 
                     // Toggle visibility of expandedContentPanel
-                    expandedContentPanel.setVisible(section.isMaximized());
+                    if (plugin.getPanel().isNoteReorder) {
+                        expandedContentPanel.setVisible(true);
+                    } else {
+                        expandedContentPanel.setVisible(section.isMaximized());
+                    }
 
                     // Adjust layout to ensure no remnant space
                     revalidate();
